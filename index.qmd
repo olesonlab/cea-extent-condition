@@ -1,0 +1,87 @@
+---
+title: "Extents"
+---
+
+## Interactive Map
+
+```{r}
+#| label: install-packages-and-load-libraries
+#| code-fold: true
+#| code-summary: "Install Packages and Load Libraries"
+if (!requireNamespace("pacman", quietly = TRUE)) {
+  install.packages("pacman")
+}
+
+pacman::p_load(renv, yaml, rmarkdown, sf, leaflet, mapview, htmlwidgets,
+               janitor, tidyverse, googlesheets4)
+```
+
+```{r}
+#| code-fold: true
+#| code-summary: "Create Interactive Map"
+# Load the shapefile
+moku <- st_read("data/shapefiles/moku/Moku_NEW.shp", quiet = TRUE) %>% 
+  clean_names() %>% 
+  mutate(name2 = str_to_title(name2))
+
+# Create the map and add the shapefile layer
+hawaii_map <- leaflet() %>%
+  setView(lng = -157.4983, lat = 20.5, zoom = 7) %>% 
+  addProviderTiles(providers$Esri.WorldImagery) %>%
+  addTiles(urlTemplate = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+           options = tileOptions(opacity = 0.9)) %>%
+  addTiles(urlTemplate = "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+           options = tileOptions(opacity = 0.9)) %>%
+  addPolygons(data = moku, 
+              color = "#F4C2A5",
+              opacity = 0.35,
+              label = ~as.character(name2), # Add hover labels
+              labelOptions = labelOptions(
+                direction = 'auto', 
+                style = list('font-size' = '10pt')
+                )
+              )
+
+# Display the map
+hawaii_map
+```
+<br>
+
+## Datasets
+
+- [Extents](https://docs.google.com/spreadsheets/d/1E4UHa1S2iJjucl04w8D0tRSu5GwtoqwfSDHk2-guzCA/edit#gid=0)
+- [Conditions](https://docs.google.com/spreadsheets/d/1KBxESi6GaPPAd1fodUzF-xxVm5Tvayca0Hhy2aqOoPA/edit#gid=1165601635)
+
+```{r}
+#| code-fold: true
+#| code-summary: "Load Datasets"
+sheet_urls <- list(
+  extents = "https://docs.google.com/spreadsheets/d/1E4UHa1S2iJjucl04w8D0tRSu5GwtoqwfSDHk2-guzCA/edit#gid=0",
+  conditions = "https://docs.google.com/spreadsheets/d/1KBxESi6GaPPAd1fodUzF-xxVm5Tvayca0Hhy2aqOoPA/edit#gid=1165601635"
+)
+
+# # List of sheets and ranges
+# extent_sheets_and_ranges <- list(
+#   Sheet1 = "A1:C10",
+#   Sheet2 = "A1:B20"
+# )
+# 
+# # Use imap() to iterate over the list, with .x being the range and .y being the name
+# data_list <- imap(sheets_and_ranges, ~read_sheet(sheet_url, sheet = .y, range = .x))
+```
+
+
+## Desired Output(s)
+
+- Quarto website or Shiny Dashboard of extents and conditions of each island by moku
+
+### Focuses
+
+- Extent and condition > Waianae, Oahu
+- Extent > MHI
+- Conditions > Oahu 
+
+## Resources
+
+- [Esri | Sentinel-2 Land Cover Explorer](https://livingatlas.arcgis.com/landcoverexplorer/#mapCenter=-158.007%2C21.395%2C11&mode=step&timeExtent=2017%2C2022&year=2022)
+- [Unleash the Power of 3D: Crafting Stunning Land Cover Maps with R by Milos Makes Maps](https://www.youtube.com/watch?v=y_Kzg24Ciuo)

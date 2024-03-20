@@ -1,0 +1,37 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Extents",
+    "section": "",
+    "text": "Install Packages and Load Libraries\nif (!requireNamespace(\"pacman\", quietly = TRUE)) {\n  install.packages(\"pacman\")\n}\n\npacman::p_load(renv, yaml, rmarkdown, sf, leaflet, mapview, htmlwidgets,\n               janitor, tidyverse, googlesheets4)\n\n\n\n\nCreate Interactive Map\n# Load the shapefile\nmoku &lt;- st_read(\"data/shapefiles/moku/Moku_NEW.shp\", quiet = TRUE) %&gt;% \n  clean_names() %&gt;% \n  mutate(name2 = str_to_title(name2))\n\n# Create the map and add the shapefile layer\nhawaii_map &lt;- leaflet() %&gt;%\n  setView(lng = -157.4983, lat = 20.5, zoom = 7) %&gt;% \n  addProviderTiles(providers$Esri.WorldImagery) %&gt;%\n  addTiles(urlTemplate = \"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}\",\n           options = tileOptions(opacity = 0.9)) %&gt;%\n  addTiles(urlTemplate = \"https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}\",\n           options = tileOptions(opacity = 0.9)) %&gt;%\n  addPolygons(data = moku, \n              color = \"#F4C2A5\",\n              opacity = 0.35,\n              label = ~as.character(name2), # Add hover labels\n              labelOptions = labelOptions(\n                direction = 'auto', \n                style = list('font-size' = '10pt')\n                )\n              )\n\n# Display the map\nhawaii_map"
+  },
+  {
+    "objectID": "index.html#interactive-map",
+    "href": "index.html#interactive-map",
+    "title": "Extents",
+    "section": "",
+    "text": "Install Packages and Load Libraries\nif (!requireNamespace(\"pacman\", quietly = TRUE)) {\n  install.packages(\"pacman\")\n}\n\npacman::p_load(renv, yaml, rmarkdown, sf, leaflet, mapview, htmlwidgets,\n               janitor, tidyverse, googlesheets4)\n\n\n\n\nCreate Interactive Map\n# Load the shapefile\nmoku &lt;- st_read(\"data/shapefiles/moku/Moku_NEW.shp\", quiet = TRUE) %&gt;% \n  clean_names() %&gt;% \n  mutate(name2 = str_to_title(name2))\n\n# Create the map and add the shapefile layer\nhawaii_map &lt;- leaflet() %&gt;%\n  setView(lng = -157.4983, lat = 20.5, zoom = 7) %&gt;% \n  addProviderTiles(providers$Esri.WorldImagery) %&gt;%\n  addTiles(urlTemplate = \"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}\",\n           options = tileOptions(opacity = 0.9)) %&gt;%\n  addTiles(urlTemplate = \"https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}\",\n           options = tileOptions(opacity = 0.9)) %&gt;%\n  addPolygons(data = moku, \n              color = \"#F4C2A5\",\n              opacity = 0.35,\n              label = ~as.character(name2), # Add hover labels\n              labelOptions = labelOptions(\n                direction = 'auto', \n                style = list('font-size' = '10pt')\n                )\n              )\n\n# Display the map\nhawaii_map"
+  },
+  {
+    "objectID": "index.html#datasets",
+    "href": "index.html#datasets",
+    "title": "Extents",
+    "section": "Datasets",
+    "text": "Datasets\n\nExtents\nConditions\n\n\n\nLoad Datasets\nsheet_urls &lt;- list(\n  extents = \"https://docs.google.com/spreadsheets/d/1E4UHa1S2iJjucl04w8D0tRSu5GwtoqwfSDHk2-guzCA/edit#gid=0\",\n  conditions = \"https://docs.google.com/spreadsheets/d/1KBxESi6GaPPAd1fodUzF-xxVm5Tvayca0Hhy2aqOoPA/edit#gid=1165601635\"\n)\n\n# # List of sheets and ranges\n# extent_sheets_and_ranges &lt;- list(\n#   Sheet1 = \"A1:C10\",\n#   Sheet2 = \"A1:B20\"\n# )\n# \n# # Use imap() to iterate over the list, with .x being the range and .y being the name\n# data_list &lt;- imap(sheets_and_ranges, ~read_sheet(sheet_url, sheet = .y, range = .x))"
+  },
+  {
+    "objectID": "index.html#desired-outputs",
+    "href": "index.html#desired-outputs",
+    "title": "Extents",
+    "section": "Desired Output(s)",
+    "text": "Desired Output(s)\n\nQuarto website or Shiny Dashboard of extents and conditions of each island by moku\n\n\nFocuses\n\nExtent and condition &gt; Waianae, Oahu\nExtent &gt; MHI\nConditions &gt; Oahu"
+  },
+  {
+    "objectID": "index.html#resources",
+    "href": "index.html#resources",
+    "title": "Extents",
+    "section": "Resources",
+    "text": "Resources\n\nEsri | Sentinel-2 Land Cover Explorer\nUnleash the Power of 3D: Crafting Stunning Land Cover Maps with R by Milos Makes Maps"
+  }
+]

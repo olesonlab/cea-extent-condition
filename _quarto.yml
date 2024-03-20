@@ -1,0 +1,29 @@
+project:
+  type: website
+  output-dir: docs
+  preview: 
+    port: 5240
+    browser: true
+    
+execute:
+  freeze: auto
+  message: false
+  warning: false
+
+website:
+  title: "Hawaii Coastal Ecosystem Conditions and Extents"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+    back-to-top-navigation: true
+    
+format:
+  html:
+    theme: 
+      - litera
+      # - styles.scss
+    toc: true
+    toc-location: left
+    fontsize: 12pt
+    page-layout: full
