@@ -1,8 +1,8 @@
 ---
-title: "Extents"
+title: "Oʻahu Extents and Conditions"
 ---
 
-## Interactive Map
+## Packages and Libraries
 
 ```{r}
 #| label: install-packages-and-load-libraries
@@ -13,73 +13,420 @@ if (!requireNamespace("pacman", quietly = TRUE)) {
 }
 
 pacman::p_load(renv, yaml, rmarkdown, sf, leaflet, mapview, htmlwidgets,
-               janitor, tidyverse, googlesheets4)
+               janitor, tidyverse, googlesheets4, terra, lwgeom,
+               viridis, stars)
+```
+
+## Datasets
+
+```{r}
+#| label: authenticate-google-account
+#| code-fold: true
+#| code-summary: "Authenticate Google account"
+#| eval: false
+gs4_auth()
+```
+
+### [Extents](https://docs.google.com/spreadsheets/d/1E4UHa1S2iJjucl04w8D0tRSu5GwtoqwfSDHk2-guzCA/edit#gid=0)
+
+#### Marine
+
+```{r}
+#| label: import-oahu-extents-data
+#| code-fold: true
+#| code-summary: "Import Oʻahu Extents Data"
+oahu_extent_sheet_names <- c(
+  "marine" = "https://docs.google.com/spreadsheets/d/1E4UHa1S2iJjucl04w8D0tRSu5GwtoqwfSDHk2-guzCA/edit#gid=0",
+  "terrestrial" = "https://docs.google.com/spreadsheets/d/1E4UHa1S2iJjucl04w8D0tRSu5GwtoqwfSDHk2-guzCA/edit#gid=1584432883"
+)
+
+oahu_extent_dfs <- map(oahu_extent_sheet_names, read_sheet)
+```
+
+```{r}
+#| label: tidy-oahu-extents-data
+#| code-fold: true
+#| code-summary: "Tidy Oʻahu Extents Data"
+new_extent_names <- c("island", "moku", "temp1", "temp2", "temp3", "temp4", "temp5", "temp6")
+
+tidied_oahu_marine_extents_df <- oahu_extent_dfs$marine %>% 
+  select(1, 2, 8:13) %>% 
+  set_names(new_extent_names) %>%
+  mutate(island = "Oʻahu") %>%
+  fill(moku, .direction = "down") %>%
+  mutate(
+    moku = case_when(
+      lag(island) == "MOKU" ~ moku,
+      TRUE ~ moku
+    )
+  ) %>% 
+  filter(temp1 %in% c("Area (km2)", "Opening Stock (2004-2014)")) %>%
+  pivot_longer(
+    cols = c(4:8),
+    names_to = "temp",
+    values_to = "habitat"
+  ) %>% 
+  select(-c(3, 4)) %>% 
+  mutate(
+    opening_stock = if_else(grepl("^\\d+(\\.\\d+)?$|^-$", habitat), as.character(habitat), NA_character_),
+    opening_stock = if_else(opening_stock == "-", "0", opening_stock),
+    opening_stock = as.numeric(opening_stock)
+  ) %>% 
+  mutate(row = row_number()) %>%
+  # Create a grouping variable for habitats and their corresponding stock values
+  group_by(island, moku) %>%
+  mutate(group = cumsum(habitat %in% c("Soft Bottom", "Other Hard Bottom", "Rock/ Boulder", "Pavement", "Coral Dominated Hard Bottom") | row == 1)) %>%
+  # Shift opening_stock values up within each group
+  mutate(opening_stock = if_else(group > 1 & !is.na(opening_stock), opening_stock, lead(opening_stock, n = 5))) %>%
+  ungroup() %>%
+  # Filter out the stock value rows, leaving only habitat rows
+  filter(habitat %in% c("Soft Bottom", "Other Hard Bottom", "Rock/ Boulder", "Pavement", "Coral Dominated Hard Bottom")) %>%
+  select(-row, -group) %>% 
+  mutate(
+    across(c(island, moku), as.factor),
+    habitat = as.factor(map_chr(habitat, ~ .x[1]))
+    ) %>% 
+  # filter(habitat != "Other Hard Bottom") %>% 
+  mutate(habitat = if_else(habitat == "Rock/ Boulder", "Rock/Boulder", habitat))
+
+paged_table(tidied_oahu_marine_extents_df)
+```
+
+#### Terrestrial
+
+### [Conditions](https://docs.google.com/spreadsheets/d/1KBxESi6GaPPAd1fodUzF-xxVm5Tvayca0Hhy2aqOoPA/edit#gid=1165601635)
+
+```{r}
+#| label: import-oahu-conditions-data
+#| code-fold: true
+#| code-summary: "Import Oʻahu Conditions Data"
+conditions_sheet_url <- "https://docs.google.com/spreadsheets/d/1KBxESi6GaPPAd1fodUzF-xxVm5Tvayca0Hhy2aqOoPA/edit?usp=sharing"
+
+# Retrieve the Google Sheet document
+oahu_conditions_sheets <- gs4_get(conditions_sheet_url) %>% 
+  pluck("sheets") %>% 
+  filter(str_detect(name, "Oahu"))
+
+# Read each "Oahu" sheet into a list of data frames
+oahu_conditions_dfs <- purrr::map(oahu_conditions_sheets$name, ~ read_sheet(conditions_sheet_url, sheet = .x)) %>% 
+  set_names(oahu_conditions_sheets$name)
+```
+
+```{r}
+#| label: tidy-oahu-conditions-data
+#| code-fold: true
+#| code-summary: "Tidy Oʻahu Conditions Data"
+tidy_conditions_data <- function(df, remove_cols_vect = NULL, remove_rows_vect) {
+  df_tidied <- df %>%
+  mutate(island = "Oʻahu",
+         moku = if_else(ISLAND == "MOKU", Oahu, NA_character_),
+         ecosystem_type = if_else(...3 == "Ecosystem Type", Oahu, NA_character_)) %>%
+  relocate(island, moku, ecosystem_type, .before = "...1") %>%
+  fill(c(moku, ecosystem_type), .direction = "down") %>%
+  rename("typology_class" = ...1,
+         "descriptor" = ...2,
+         "unit" = ...3,
+         "Variable Values: Opening Value" = ISLAND,
+         "Variable Values: Closing Value" = Oahu,
+         "Actively Managed or Conserved" = ...6,
+         "Reference Level Values: Upper Level" = ...7,
+         "Reference Level Values: Lower Level" = ...8,
+         "Indicator Values (Rescaled): Opening Value" = ...9,
+         "Indicator Values (Rescaled): Closing Value" = ...10,
+         "Indicator Values (Rescaled): Change in Indicator" = ...11) %>% 
+    {if (!is.null(remove_cols_vect)) select(., -all_of(remove_cols_vect)) else .} %>% 
+  slice(-remove_rows_vect) %>%
+  fill(c(typology_class, descriptor, unit), .direction = "down") %>%
+  mutate(typology_class = str_replace_all(typology_class, "\\s+|\\n", " ")) %>%
+  separate(typology_class, into = c("typology_class_code", "typology"),
+           sep = "\\) ",
+           extra = "merge",
+           fill = "right") %>%
+  mutate(
+    typology_class_code = str_trim(str_replace(typology_class_code, "\\(", "")),
+    typology = str_trim(str_replace(typology, "^\\)", ""))
+    ) %>%
+  mutate(
+    across(where(is.character), ~gsub("([A-Za-z]+)/ ([A-Za-z]+)", "\\1/\\2", .))) %>%
+  mutate(across(.cols = 8:15, .fns = as.character)) %>%
+  pivot_longer(
+    cols = c(8:15),
+    names_to = "measurement",
+    values_to = "value"
+  ) %>%
+  separate(measurement, into = c("category", "measurement"), sep = ": ", convert = TRUE) %>%
+  mutate(
+    category = str_trim(category),
+    measurement = str_trim(measurement)
+  ) %>%
+  mutate(
+    category = as.factor(category),
+    measurement = as.factor(measurement),
+    value = as.numeric(value)
+  ) %>%
+    mutate(measurement = coalesce(measurement, "Actively Managed or Conserved"))
+  
+    return(df_tidied)
+}
+
+tidied_oahu_conditions_dfs_list <- list(
+  list(df = oahu_conditions_dfs$WAIANAE_Oahu, 
+       remove_cols_vect = c(15:20), 
+       remove_rows_vect = c(1:6, 18:27, 39:45, 55:59, 62:67, 83:88)),
+  list(df = oahu_conditions_dfs$KOOLAUPOKO_Oahu, 
+       remove_rows_vect = c(1:6, 18:24, 36:42, 55:64, 67:74, 90:96, 98:106)),
+  list(df = oahu_conditions_dfs$EWA_Oahu, 
+       remove_rows_vect = c(1:6, 18:23, 35:40, 53:60, 63:71)),
+  list(df = oahu_conditions_dfs$KONA_Oahu, 
+       remove_rows_vect = c(1:5, 17:22, 34:39, 52:60, 63:71, 87:92, 94:97)),
+  list(df = oahu_conditions_dfs$KOOLAULOA_Oahu, 
+       remove_rows_vect = c(1:5, 17:22, 34:39, 52:56, 59:64, 80:84, 86:89, 95:103)),
+  list(df = oahu_conditions_dfs$WAIALUA_Oahu, 
+       remove_rows_vect = c(1:5, 17:22, 34:39, 52:56, 59:64, 80:85))
+)
+
+tidied_oahu_conditions_df <- map_dfr(tidied_oahu_conditions_dfs_list, ~do.call(tidy_conditions_data, .x)) %>% 
+  mutate(moku = gsub("Ewa", "ʻEwa", moku))
+
+paged_table(tidied_oahu_conditions_df)
+```
+
+```{r}
+#| echo: false
+# tidied_koolaupoko_oahu_conditions <- oahu_condition_dfs$WAIANAE_Oahu %>%
+#   mutate(island = "Oʻahu",
+#          moku = if_else(ISLAND == "MOKU", Oahu, NA_character_),
+#          ecosystem_type = if_else(...3 == "Ecosystem Type", Oahu, NA_character_)) %>%
+#   relocate(island, moku, ecosystem_type, .before = "...1") %>%
+#   fill(c(moku, ecosystem_type), .direction = "down") %>%
+#   rename("typology_class" = ...1,
+#          "descriptor" = ...2,
+#          "unit" = ...3,
+#          "Variable Values: Opening Value" = ISLAND,
+#          "Variable Values: Closing Value" = Oahu,
+#          "Actively Managed or Conserved" = ...6,
+#          "Reference Level Values: Upper Level" = ...7,
+#          "Reference Level Values: Lower Level" = ...8,
+#          "Indicator Values (Rescaled): Opening Value" = ...9,
+#          "Indicator Values (Rescaled): Closing Value" = ...10,
+#          "Indicator Values (Rescaled): Change in Indicator" = ...11) %>% 
+#   select(-c(15:20)) %>%
+#   slice(-c(1:6, 18:27, 39:45, 55:59, 62:67, 83:88)) %>%
+#   fill(c(typology_class, descriptor, unit), .direction = "down") %>%
+#   mutate(typology_class = str_replace_all(typology_class, "\\s+|\\n", " ")) %>%
+#   separate(typology_class, into = c("typology_class_code", "typology"),
+#            sep = "\\) ",
+#            extra = "merge",
+#            fill = "right") %>%
+#   mutate(
+#     typology_class_code = str_trim(str_replace(typology_class_code, "\\(", "")),
+#     typology = str_trim(str_replace(typology, "^\\)", ""))
+#     ) %>%
+#   mutate(
+#     across(where(is.character), ~gsub("([A-Za-z]+)/ ([A-Za-z]+)", "\\1/\\2", .))) %>%
+#   mutate(across(.cols = 8:15, .fns = as.character)) %>%
+#   pivot_longer(
+#     cols = c(8:15),
+#     names_to = "measurement",
+#     values_to = "value"
+#   ) %>%
+#   separate(measurement, into = c("category", "measurement"), sep = ": ", convert = TRUE) %>%
+#   mutate(
+#     category = str_trim(category),
+#     measurement = str_trim(measurement)
+#   ) %>%
+#   mutate(
+#     category = as.factor(category),
+#     measurement = as.factor(measurement),
+#     value = as.numeric(value)
+#   ) %>%
+#     mutate(measurement = coalesce(measurement, "Actively Managed or Conserved"))
+# 
+# #   # Optional: Create a hierarchical structure if applicable
+# #   group_by(category) %>%
+# #   mutate(ID = row_number()) %>%
+# #   ungroup() %>%
+# #   # Pivot part of the table back to a wider format if necessary
+# #   pivot_wider(
+# #     names_from = measurement,
+# #     values_from = value
+# #   ) %>%
+# #   # Rename columns for clarity
+# #   rename_with(~ str_replace_all(., " ", "_"), .cols = everything()) %>% 
+# #   clean_names() %>% 
+# #   select(-id)
+```
+
+### Export Tidied Datasets
+
+```{r}
+# write.csv(tidied_oahu_conditions_df,
+#           paste0("data/tidied/",
+#                  format(Sys.Date(), "%Y-%m-%d"),
+#                  "_tidied-oahu-conditions.csv"),
+#           row.names = FALSE
+#           )
+# 
+# write.csv(tidied_oahu_marine_extents_df,
+#           paste0("data/tidied/",
+#                  format(Sys.Date(), "%Y-%m-%d"),
+#                  "_tidied-oahu-marine-extents.csv"),
+#           row.names = FALSE
+#           )
+```
+
+## Desired Output(s)
+
+Quarto website or Shiny Dashboard of extents and conditions of each island by moku
+
+Focuses:
+
+- Extent and condition > Waianae, Oahu
+- Extent > MHI
+- Conditions > Oahu 
+
+### Interactive Map
+
+```{r}
+#| eval: false
+crs <- "EPSG:4326"
+```
+
+```{r}
+#| eval: false
+moku <- st_read("data/spatial/moku/Moku_NEW.shp", quiet = TRUE)
+
+# Assuming 'moku' is your spatial vector data and needs to be transformed as well
+moku_transformed <- moku %>%
+  clean_names() %>%
+  mutate(name2 = str_to_title(name2)) %>%
+  st_transform(crs = crs)
+
+waianae_moku <- moku_transformed %>% 
+  filter(name2 == "Waianae")
+```
+
+```{r}
+#| eval: false
+mhi_marine_extent <- terra::rast("data/spatial/extent-layers/marine/Benthic_Habitat_5Classes_2022_10.tif") %>% 
+  terra::project(crs)
+
+waianae_moku_marine_extent <- mhi_marine_extent %>% 
+  crop(waianae_moku) %>% 
+  as.factor()
+
+# waianae_moku_marine_extent@ccp$getCategories()
+# 
+# getCategories()
+# activeCat(waianae_moku_marine_extent)
+
+# waianae_moku_marine_extent@cpp$activeCat() <- 1
+```
+
+```{r}
+#| eval: false
+# Define the colors for the habitat categories that are actually present in the raster
+habitat_colors <- c("white", "#F4E8C1", "#808080", "green", "#FF4500")  # Excludes "Other Hard Bottom"
+
+# Update the RAT with the correct values and colors, excluding "Other Hard Bottom"
+rat <- data.frame(
+  value = c(0, 1, 3, 4, 5),  # Updated to reflect the values that are present
+  habitat = c("NA", "Soft Bottom", "Rock/Boulder", "Pavement", "Coral Dominated Hard Bottom"),
+  color = habitat_colors
+)
+
+# Assign the updated RAT to the raster
+levels(waianae_moku_marine_extent) <- rat
+
+na_color <- "black"  
+rat$color[is.na(rat$color)] <- na_color
+```
+
+```{r}
+#| eval: false
+colored_waianae_moku_extents <- rat %>% 
+  left_join(tidied_waianae_oahu_extents, ., by = "habitat")
+```
+
+
+```{r}
+#| warning: false
+#| eval: false
+terra::plot(waianae_moku_marine_extent, col = colored_waianae_moku_extents$color)
+lines(waianae_moku, col="forestgreen", lwd=5) 
+```
+
+```{r}
+#| eval: false
+leaflet() %>%
+  setView(lng = -157.99827222584105, lat = 21.47, zoom = 10) %>%
+  addProviderTiles(providers$Esri.WorldImagery) %>%
+  addRasterImage(waianae_moku_marine_extent, opacity = 0.8, colors = rat$color) %>%
+  # addLegend(pal = rat$Color, values = rat$Value, opacity = 1, title = "Habitat") %>% 
+  addPolygons(data = waianae_moku, color = "#F4C2A5", opacity = 0.5,
+              label = ~as.character(name2),
+              labelOptions = labelOptions(
+                direction = 'auto', 
+                style = list('font-size' = '15pt',
+                             'font-weight' = 'bold'), 
+                noHide = TRUE)
+              ) 
+```
+
+```{r}
+#| eval: false
+# Generate a color palette
+palette <- colorFactor(palette = "viridis", domain = waianae_moku_marine_extent_df$Habitat)
+
+# Create the Leaflet map
+leaflet(waianae_moku_marine_extent_sf) %>%
+  setView(lng = -158.18700955981603, lat = 21.44041625309884, zoom = 9) %>%
+  addProviderTiles(providers$Esri.WorldImagery) %>%
+  addPolygons(fillColor = ~colors(layer), color = ~colors(layer), fillOpacity = 0.7, weight = 0) %>%
+  addLegend(pal = colors, values = ~layer, opacity = 1, title = "Habitat") %>% 
+  addPolygons(data = waianae_moku, color = "#F4C2A5", opacity = 0.5,
+              label = ~as.character(name2),
+              labelOptions = labelOptions(
+                direction = 'auto', 
+                style = list('font-size' = '15pt',
+                             'font-weight' = 'bold'), 
+                noHide = TRUE)
+              ) 
+```
+
+```{r}
+#| eval: false
+mapview(waianae_moku_marine_extent, legend = TRUE, trim = TRUE, 
+        use.layer.names = TRUE) + 
+  mapview(waianae_moku, label = waianae_moku$name2)
 ```
 
 ```{r}
 #| code-fold: true
 #| code-summary: "Create Interactive Map"
-# Load the shapefile
-moku <- st_read("data/shapefiles/moku/Moku_NEW.shp", quiet = TRUE) %>% 
-  clean_names() %>% 
-  mutate(name2 = str_to_title(name2))
+#| fig-height: 10
+#| fig-width: 15
+#| eval: false
 
-# Create the map and add the shapefile layer
-hawaii_map <- leaflet() %>%
-  setView(lng = -157.4983, lat = 20.5, zoom = 7) %>% 
+leaflet() %>%
+  setView(lng = -158.18700955981603, lat = 21.44041625309884, zoom = 12) %>%
   addProviderTiles(providers$Esri.WorldImagery) %>%
   addTiles(urlTemplate = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
            options = tileOptions(opacity = 0.9)) %>%
   addTiles(urlTemplate = "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
            options = tileOptions(opacity = 0.9)) %>%
-  addPolygons(data = moku, 
+    addRasterImage(marine_extent, opacity = 0.8, colors = viridis::viridis(100)) %>%
+  addPolygons(data = moku_transformed, 
               color = "#F4C2A5",
-              opacity = 0.35,
+              opacity = 0.5,
               label = ~as.character(name2), # Add hover labels
               labelOptions = labelOptions(
-                direction = 'auto', 
-                style = list('font-size' = '10pt')
+                direction = 'top', 
+                style = list('font-size' = '20pt'),
+                noHide = TRUE
                 )
               )
-
-# Display the map
-hawaii_map
 ```
-<br>
-
-## Datasets
-
-- [Extents](https://docs.google.com/spreadsheets/d/1E4UHa1S2iJjucl04w8D0tRSu5GwtoqwfSDHk2-guzCA/edit#gid=0)
-- [Conditions](https://docs.google.com/spreadsheets/d/1KBxESi6GaPPAd1fodUzF-xxVm5Tvayca0Hhy2aqOoPA/edit#gid=1165601635)
-
-```{r}
-#| code-fold: true
-#| code-summary: "Load Datasets"
-sheet_urls <- list(
-  extents = "https://docs.google.com/spreadsheets/d/1E4UHa1S2iJjucl04w8D0tRSu5GwtoqwfSDHk2-guzCA/edit#gid=0",
-  conditions = "https://docs.google.com/spreadsheets/d/1KBxESi6GaPPAd1fodUzF-xxVm5Tvayca0Hhy2aqOoPA/edit#gid=1165601635"
-)
-
-# # List of sheets and ranges
-# extent_sheets_and_ranges <- list(
-#   Sheet1 = "A1:C10",
-#   Sheet2 = "A1:B20"
-# )
-# 
-# # Use imap() to iterate over the list, with .x being the range and .y being the name
-# data_list <- imap(sheets_and_ranges, ~read_sheet(sheet_url, sheet = .y, range = .x))
-```
-
-
-## Desired Output(s)
-
-- Quarto website or Shiny Dashboard of extents and conditions of each island by moku
-
-### Focuses
-
-- Extent and condition > Waianae, Oahu
-- Extent > MHI
-- Conditions > Oahu 
 
 ## Resources
 
