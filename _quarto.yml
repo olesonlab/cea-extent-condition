@@ -11,7 +11,7 @@ execute:
   warning: false
 
 website:
-  title: "Hawaii Coastal Ecosystem Conditions and Extents"
+  title: "Hawaii Coastal Ecosystem Extents and Conditions"
   navbar:
     left:
       - href: index.qmd
@@ -24,5 +24,10 @@ format:
       # - styles.scss
     toc: true
     toc-location: left
+    toc-title: "Data Analysis Workflow:"
     fontsize: 12pt
     page-layout: full
+    margin-header: |
+      <br>
+      ![](/www/logos/uhm-logo.png) 
+      <br><br>

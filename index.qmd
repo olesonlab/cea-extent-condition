@@ -1,6 +1,8 @@
----
-title: "Oʻahu Extents and Conditions"
----
+## Desired Output(s)
+
+Quarto website or Shiny Dashboard of extents and conditions of each island by moku
+
+*Current Focus*: Oʻahu Extents and Conditions
 
 ## Packages and Libraries
 
@@ -17,105 +19,87 @@ pacman::p_load(renv, yaml, rmarkdown, sf, leaflet, mapview, htmlwidgets,
                viridis, stars)
 ```
 
-## Datasets
+## Helper Functions
 
 ```{r}
-#| label: authenticate-google-account
+#| label: import-data-from-google-sheets-function
 #| code-fold: true
-#| code-summary: "Authenticate Google account"
-#| eval: false
-gs4_auth()
-```
+#| code-summary: "Function to Import Extents and Conditions Data from Google Sheets"
+import_mhi_extents_and_conditions_gs <- function(url_str) {
+  imported_sheets <- gs4_get(url_str) %>%
+    pluck("sheets")
 
-### Extents
+  sheet_names_lower <- tolower(imported_sheets$name)
 
-#### Marine
+  sheets_data <- purrr::map(imported_sheets$name, ~ {
+    Sys.sleep(2) 
+    read_sheet(url_str, sheet = .x)
+  })
 
-```{r}
-#| label: import-oahu-extents-data
-#| code-fold: true
-#| code-summary: "Import Oʻahu Extents Data"
-oahu_extent_sheet_names <- c(
-  "marine" = "https://docs.google.com/spreadsheets/d/1E4UHa1S2iJjucl04w8D0tRSu5GwtoqwfSDHk2-guzCA/edit#gid=0",
-  "terrestrial" = "https://docs.google.com/spreadsheets/d/1E4UHa1S2iJjucl04w8D0tRSu5GwtoqwfSDHk2-guzCA/edit#gid=1584432883"
-)
+  names(sheets_data) <- sheet_names_lower
 
-oahu_extent_dfs <- map(oahu_extent_sheet_names, read_sheet)
+  return(sheets_data)
+}
 ```
 
 ```{r}
-#| label: tidy-oahu-extents-data
+#| label: subset-mhi-dfs-function
 #| code-fold: true
-#| code-summary: "Tidy Oʻahu Extents Data"
-new_extent_names <- c("island", "moku", "temp1", "temp2", "temp3", "temp4", "temp5", "temp6")
-
-tidied_oahu_marine_extents_df <- oahu_extent_dfs$marine %>% 
-  select(1, 2, 8:13) %>% 
-  set_names(new_extent_names) %>%
-  mutate(island = "Oʻahu") %>%
-  fill(moku, .direction = "down") %>%
-  mutate(
-    moku = case_when(
-      lag(island) == "MOKU" ~ moku,
-      TRUE ~ moku
+#| code-summary: "Function to Subset Main Hawaiian Islands (MHI) Dataframes"
+subset_mhi_dfs <- function(mhi_dfs, subset, island_str = NULL, moku_str = NULL, extent_str = NULL) {
+  if (!subset %in% c("conditions", "extents")) {
+    stop("Subset must be either 'conditions' or 'extents'")
+  }
+  
+  dfs <- mhi_dfs[[subset]]
+  
+  filtered_dfs <- list()
+  
+  for (name in names(dfs)) {
+    df <- dfs[[name]]
+    
+    conditions_met <- c(
+      is.null(island_str) || grepl(island_str, name, ignore.case = TRUE),
+      is.null(moku_str) || grepl(moku_str, name, ignore.case = TRUE),
+      is.null(extent_str) || grepl(extent_str, name, ignore.case = TRUE)
     )
-  ) %>% 
-  filter(temp1 %in% c("Area (km2)", "Opening Stock (2004-2014)")) %>%
-  pivot_longer(
-    cols = c(4:8),
-    names_to = "temp",
-    values_to = "habitat"
-  ) %>% 
-  select(-c(3, 4)) %>% 
-  mutate(
-    opening_stock = if_else(grepl("^\\d+(\\.\\d+)?$|^-$", habitat), as.character(habitat), NA_character_),
-    opening_stock = if_else(opening_stock == "-", "0", opening_stock),
-    opening_stock = as.numeric(opening_stock)
-  ) %>% 
-  mutate(row = row_number()) %>%
-  # Create a grouping variable for habitats and their corresponding stock values
-  group_by(island, moku) %>%
-  mutate(group = cumsum(habitat %in% c("Soft Bottom", "Other Hard Bottom", "Rock/ Boulder", "Pavement", "Coral Dominated Hard Bottom") | row == 1)) %>%
-  # Shift opening_stock values up within each group
-  mutate(opening_stock = if_else(group > 1 & !is.na(opening_stock), opening_stock, lead(opening_stock, n = 5))) %>%
-  ungroup() %>%
-  # Filter out the stock value rows, leaving only habitat rows
-  filter(habitat %in% c("Soft Bottom", "Other Hard Bottom", "Rock/ Boulder", "Pavement", "Coral Dominated Hard Bottom")) %>%
-  select(-row, -group) %>% 
-  mutate(
-    across(c(island, moku), as.factor),
-    habitat = as.factor(map_chr(habitat, ~ .x[1]))
-    ) %>% 
-  # filter(habitat != "Other Hard Bottom") %>% 
-  mutate(habitat = if_else(habitat == "Rock/ Boulder", "Rock/Boulder", habitat))
-
-paged_table(tidied_oahu_marine_extents_df)
-```
-
-#### Terrestrial
-
-### Conditions
-
-```{r}
-#| label: import-oahu-conditions-data
-#| code-fold: true
-#| code-summary: "Import Oʻahu Conditions Data"
-conditions_sheet_url <- "https://docs.google.com/spreadsheets/d/1KBxESi6GaPPAd1fodUzF-xxVm5Tvayca0Hhy2aqOoPA/edit?usp=sharing"
-
-# Retrieve the Google Sheet document
-oahu_conditions_sheets <- gs4_get(conditions_sheet_url) %>% 
-  pluck("sheets") %>% 
-  filter(str_detect(name, "Oahu"))
-
-# Read each "Oahu" sheet into a list of data frames
-oahu_conditions_dfs <- purrr::map(oahu_conditions_sheets$name, ~ read_sheet(conditions_sheet_url, sheet = .x)) %>% 
-  set_names(oahu_conditions_sheets$name)
+    
+    if (all(conditions_met)) {
+      filtered_dfs[[name]] <- df
+    }
+  }
+  
+  return(filtered_dfs)
+}
 ```
 
 ```{r}
-#| label: tidy-oahu-conditions-data
+#| label: export-tidied-dfs-to-csv-function
 #| code-fold: true
-#| code-summary: "Tidy Oʻahu Conditions Data"
+#| code-summary: "Function to Export Tidied Dataframes to CSV"
+export_tidied_dfs_to_csv <- function(df, desc_name, dir_path = "data/tidied/") {
+  # Ensure the directory exists; if not, create it
+  if (!dir.exists(dir_path)) {
+    dir.create(dir_path, recursive = TRUE)
+  }
+  
+  # Construct the file path with the current date and descriptive name
+  file_path <- paste0(dir_path,
+                      format(Sys.Date(), "%Y-%m-%d"),
+                      "_tidied-", desc_name, ".csv")
+  
+  # Write the dataframe to a CSV file
+  write.csv(df, file_path, row.names = FALSE)
+  
+  # Optionally, print a message indicating where the file was saved
+  message("File saved to: ", file_path)
+}
+```
+
+```{r}
+#| label: tidy-oahu-conditions-data-function
+#| code-fold: true
+#| code-summary: "Function to Tidy Oʻahu Conditions Data"
 tidy_conditions_data <- function(df, remove_cols_vect = NULL, remove_rows_vect) {
   df_tidied <- df %>%
   mutate(island = "Oʻahu",
@@ -168,20 +152,166 @@ tidy_conditions_data <- function(df, remove_cols_vect = NULL, remove_rows_vect) 
   
     return(df_tidied)
 }
+```
 
+## Datasets
+
+### Import Data
+
+```{r}
+#| label: configs
+#| code-fold: true
+#| code-summary: "Configurations"
+gs_urls <- yaml::read_yaml("code/gs_urls.yml")
+gs4_auth()
+```
+
+::: {.panel-tabset}
+
+#### General
+
+Import extents and conditions data from Google Sheets for MHI:
+
+```{r}
+#| label: import-data-from-google-sheets
+#| eval: false
+mhi_extents_dfs <- import_mhi_extents_and_conditions_gs(gs_urls$extents)
+
+mhi_conditions_dfs <- import_mhi_extents_and_conditions_gs(gs_urls$conditions)
+```
+
+Efficiently load extents and conditions data for MHI:
+
+```{r}
+#| label: efficiently-load-mhi-extents-and-conditions-data
+# Export once
+# mhi_dfs <- mhi_dfs <- list(
+#   conditions = mhi_conditions_dfs, 
+#   extents = mhi_extents_dfs
+#   )
+# save(mhi_dfs, file = "data/raw/mhi_dfs.RData")
+
+base::load("data/raw/mhi_dfs.RData")
+```
+
+List of MHI dataframes:
+
+```{r}
+names(mhi_dfs$extents)
+names(mhi_dfs$conditions)
+```
+
+#### Specific
+
+Subset MHI dataframes:
+
+```{r}
+#| label: import-oahu-extents-and-conditions-dat
+oahu_extents_df <- subset_mhi_dfs(
+  mhi_dfs, subset = "extents", island_str = "oahu"
+  )
+
+oahu_conditions_dfs <- subset_mhi_dfs(
+  mhi_dfs, subset = "conditions", island_str = "oahu"
+  )
+```
+
+List of Oʻahu dataframes:
+
+```{r}
+names(oahu_extents_df)
+names(oahu_conditions_dfs)
+```
+
+:::
+
+### Tidy Data
+
+```{r}
+#| label: authenticate-google-account
+#| code-fold: true
+#| code-summary: "Authenticate Google account"
+#| eval: false
+gs4_auth()
+```
+
+::: {.panel-tabset}
+
+#### Extents
+
+##### Marine
+
+```{r}
+#| label: tidy-oahu-extents-data
+#| code-fold: true
+#| code-summary: "Tidy Oʻahu Marine Extents Data"
+new_extent_names <- c("island", "moku", "temp1", "temp2", "temp3", "temp4", "temp5", "temp6")
+
+tidied_oahu_marine_extents_df <- oahu_extents_df$marine_oahu %>% 
+  select(1, 2, 8:13) %>% 
+  set_names(new_extent_names) %>%
+  mutate(island = "Oʻahu") %>%
+  fill(moku, .direction = "down") %>%
+  mutate(
+    moku = case_when(
+      lag(island) == "MOKU" ~ moku,
+      TRUE ~ moku
+    )
+  ) %>% 
+  filter(temp1 %in% c("Area (km2)", "Opening Stock (2004-2014)")) %>%
+  pivot_longer(
+    cols = c(4:8),
+    names_to = "temp",
+    values_to = "habitat"
+  ) %>% 
+  select(-c(3, 4)) %>% 
+  mutate(
+    opening_stock = if_else(grepl("^\\d+(\\.\\d+)?$|^-$", habitat), as.character(habitat), NA_character_),
+    opening_stock = if_else(opening_stock == "-", "0", opening_stock),
+    opening_stock = as.numeric(opening_stock)
+  ) %>% 
+  mutate(row = row_number()) %>%
+  # Create a grouping variable for habitats and their corresponding stock values
+  group_by(island, moku) %>%
+  mutate(group = cumsum(habitat %in% c("Soft Bottom", "Other Hard Bottom", "Rock/ Boulder", "Pavement", "Coral Dominated Hard Bottom") | row == 1)) %>%
+  # Shift opening_stock values up within each group
+  mutate(opening_stock = if_else(group > 1 & !is.na(opening_stock), opening_stock, lead(opening_stock, n = 5))) %>%
+  ungroup() %>%
+  # Filter out the stock value rows, leaving only habitat rows
+  filter(habitat %in% c("Soft Bottom", "Other Hard Bottom", "Rock/ Boulder", "Pavement", "Coral Dominated Hard Bottom")) %>%
+  select(-row, -group) %>% 
+  mutate(
+    across(c(island, moku), as.factor),
+    habitat = as.factor(map_chr(habitat, ~ .x[1]))
+    ) %>% 
+  # filter(habitat != "Other Hard Bottom") %>% 
+  mutate(habitat = if_else(habitat == "Rock/ Boulder", "Rock/Boulder", habitat))
+
+paged_table(tidied_oahu_marine_extents_df)
+```
+<br>
+
+##### Terrestrial
+
+#### Conditions
+
+```{r}
+#| label: tidy-oahu-conditions-data
+#| code-fold: true
+#| code-summary: "Tidy Oʻahu Conditions Data"
 tidied_oahu_conditions_dfs_list <- list(
-  list(df = oahu_conditions_dfs$WAIANAE_Oahu, 
+  list(df = oahu_conditions_dfs$waianae_oahu, 
        remove_cols_vect = c(15:20), 
        remove_rows_vect = c(1:6, 18:27, 39:45, 55:59, 62:67, 83:88)),
-  list(df = oahu_conditions_dfs$KOOLAUPOKO_Oahu, 
+  list(df = oahu_conditions_dfs$koolaupoko_oahu, 
        remove_rows_vect = c(1:6, 18:24, 36:42, 55:64, 67:74, 90:96, 98:106)),
-  list(df = oahu_conditions_dfs$EWA_Oahu, 
+  list(df = oahu_conditions_dfs$ewa_oahu, 
        remove_rows_vect = c(1:6, 18:23, 35:40, 53:60, 63:71)),
-  list(df = oahu_conditions_dfs$KONA_Oahu, 
+  list(df = oahu_conditions_dfs$kona_oahu, 
        remove_rows_vect = c(1:5, 17:22, 34:39, 52:60, 63:71, 87:92, 94:97)),
-  list(df = oahu_conditions_dfs$KOOLAULOA_Oahu, 
+  list(df = oahu_conditions_dfs$koolauloa_oahu, 
        remove_rows_vect = c(1:5, 17:22, 34:39, 52:56, 59:64, 80:84, 86:89, 95:103)),
-  list(df = oahu_conditions_dfs$WAIALUA_Oahu, 
+  list(df = oahu_conditions_dfs$waialua_oahu, 
        remove_rows_vect = c(1:5, 17:22, 34:39, 52:56, 59:64, 80:85))
 )
 
@@ -257,43 +387,32 @@ paged_table(tidied_oahu_conditions_df)
 # #   select(-id)
 ```
 
-### Export Tidied Datasets
+:::
+
+### Export Tidied Data
 
 ```{r}
-# write.csv(tidied_oahu_conditions_df,
-#           paste0("data/tidied/",
-#                  format(Sys.Date(), "%Y-%m-%d"),
-#                  "_tidied-oahu-conditions.csv"),
-#           row.names = FALSE
-#           )
-# 
-# write.csv(tidied_oahu_marine_extents_df,
-#           paste0("data/tidied/",
-#                  format(Sys.Date(), "%Y-%m-%d"),
-#                  "_tidied-oahu-marine-extents.csv"),
-#           row.names = FALSE
-#           )
+#| label: export-tidied-dfs-to-csv
+#| eval: false
+tidied_dfs_list <- list(
+  list(df = tidied_oahu_conditions_df, desc_name = "oahu-conditions"),
+  list(df = tidied_oahu_marine_extents_df, desc_name = "oahu-marine-extents")
+)
+
+map(tidied_dfs_list, ~export_tidied_dfs_csv(.x$df, .x$desc_name))
 ```
 
-## Desired Output(s)
-
-Quarto website or Shiny Dashboard of extents and conditions of each island by moku
-
-Focuses:
-
-- Extent and condition > Waianae, Oahu
-- Extent > MHI
-- Conditions > Oahu 
-
-### Interactive Map
+## Visualizations
 
 ```{r}
 #| eval: false
+#| echo: false
 crs <- "EPSG:4326"
 ```
 
 ```{r}
 #| eval: false
+#| echo: false
 moku <- st_read("data/spatial/moku/Moku_NEW.shp", quiet = TRUE)
 
 # Assuming 'moku' is your spatial vector data and needs to be transformed as well
@@ -308,6 +427,7 @@ waianae_moku <- moku_transformed %>%
 
 ```{r}
 #| eval: false
+#| echo: false
 mhi_marine_extent <- terra::rast("data/spatial/extent-layers/marine/Benthic_Habitat_5Classes_2022_10.tif") %>% 
   terra::project(crs)
 
@@ -325,6 +445,7 @@ waianae_moku_marine_extent <- mhi_marine_extent %>%
 
 ```{r}
 #| eval: false
+#| echo: false
 # Define the colors for the habitat categories that are actually present in the raster
 habitat_colors <- c("white", "#F4E8C1", "#808080", "green", "#FF4500")  # Excludes "Other Hard Bottom"
 
@@ -344,6 +465,7 @@ rat$color[is.na(rat$color)] <- na_color
 
 ```{r}
 #| eval: false
+#| echo: false
 colored_waianae_moku_extents <- rat %>% 
   left_join(tidied_waianae_oahu_extents, ., by = "habitat")
 ```
@@ -352,12 +474,14 @@ colored_waianae_moku_extents <- rat %>%
 ```{r}
 #| warning: false
 #| eval: false
+#| echo: false
 terra::plot(waianae_moku_marine_extent, col = colored_waianae_moku_extents$color)
 lines(waianae_moku, col="forestgreen", lwd=5) 
 ```
 
 ```{r}
 #| eval: false
+#| echo: false
 leaflet() %>%
   setView(lng = -157.99827222584105, lat = 21.47, zoom = 10) %>%
   addProviderTiles(providers$Esri.WorldImagery) %>%
@@ -375,6 +499,7 @@ leaflet() %>%
 
 ```{r}
 #| eval: false
+#| echo: false
 # Generate a color palette
 palette <- colorFactor(palette = "viridis", domain = waianae_moku_marine_extent_df$Habitat)
 
@@ -396,6 +521,7 @@ leaflet(waianae_moku_marine_extent_sf) %>%
 
 ```{r}
 #| eval: false
+#| echo: false
 mapview(waianae_moku_marine_extent, legend = TRUE, trim = TRUE, 
         use.layer.names = TRUE) + 
   mapview(waianae_moku, label = waianae_moku$name2)
@@ -407,6 +533,7 @@ mapview(waianae_moku_marine_extent, legend = TRUE, trim = TRUE,
 #| fig-height: 10
 #| fig-width: 15
 #| eval: false
+#| echo: false
 
 leaflet() %>%
   setView(lng = -158.18700955981603, lat = 21.44041625309884, zoom = 12) %>%

@@ -44,3 +44,4 @@ renv/
 /.quarto/
 _freeze/
 data/
+code/gsheets_urls.yml
