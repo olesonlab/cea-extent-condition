@@ -1,23 +1,17 @@
+---
+title: "Mapping Oʻahu Extents and Conditions"
+author: "Alemarie Ceria"
+date: 03/20/2024
+format: 
+  html: 
+    code-overflow: wrap
+---
+
 ## Desired Output(s)
 
 Quarto website or Shiny Dashboard of extents and conditions of each island by moku
 
 *Current Focus*: Oʻahu Extents and Conditions
-
-## Packages and Libraries
-
-```{r}
-#| label: install-packages-and-load-libraries
-#| code-fold: true
-#| code-summary: "Install Packages and Load Libraries"
-if (!requireNamespace("pacman", quietly = TRUE)) {
-  install.packages("pacman")
-}
-
-pacman::p_load(renv, yaml, rmarkdown, sf, leaflet, mapview, htmlwidgets,
-               janitor, tidyverse, googlesheets4, terra, lwgeom,
-               viridis, stars)
-```
 
 ## Helper Functions
 
@@ -154,15 +148,37 @@ tidy_conditions_data <- function(df, remove_cols_vect = NULL, remove_rows_vect) 
 }
 ```
 
-## Datasets
+## Data Importation
 
-### Import Data
+### Data Sources
+
+### Procedure
+
+```{r}
+#| label: install-packages-and-load-libraries
+#| code-fold: true
+#| code-summary: "Install Packages and Load Libraries"
+if (!requireNamespace("pacman", quietly = TRUE)) {
+  install.packages("pacman")
+}
+
+pacman::p_load(renv, yaml, rmarkdown, sf, leaflet, mapview, htmlwidgets,
+               janitor, tidyverse, googlesheets4, terra, lwgeom,
+               viridis, stars)
+```
 
 ```{r}
 #| label: configs
 #| code-fold: true
 #| code-summary: "Configurations"
 gs_urls <- yaml::read_yaml("code/gs_urls.yml")
+```
+
+```{r}
+#| label: authenticate-google-account
+#| code-fold: true
+#| code-summary: "Authenticate Google account"
+#| eval: false
 gs4_auth()
 ```
 
@@ -184,9 +200,9 @@ Efficiently load extents and conditions data for MHI:
 
 ```{r}
 #| label: efficiently-load-mhi-extents-and-conditions-data
-# Export once
+# Export once or when updated
 # mhi_dfs <- mhi_dfs <- list(
-#   conditions = mhi_conditions_dfs, 
+#   conditions = mhi_conditions_dfs,
 #   extents = mhi_extents_dfs
 #   )
 # save(mhi_dfs, file = "data/raw/mhi_dfs.RData")
@@ -207,7 +223,7 @@ Subset MHI dataframes:
 
 ```{r}
 #| label: import-oahu-extents-and-conditions-dat
-oahu_extents_df <- subset_mhi_dfs(
+oahu_extents_dfs <- subset_mhi_dfs(
   mhi_dfs, subset = "extents", island_str = "oahu"
   )
 
@@ -219,21 +235,15 @@ oahu_conditions_dfs <- subset_mhi_dfs(
 List of Oʻahu dataframes:
 
 ```{r}
-names(oahu_extents_df)
+names(oahu_extents_dfs)
 names(oahu_conditions_dfs)
 ```
 
 :::
 
-### Tidy Data
+## Data Cleaning and Preparation
 
-```{r}
-#| label: authenticate-google-account
-#| code-fold: true
-#| code-summary: "Authenticate Google account"
-#| eval: false
-gs4_auth()
-```
+### Tidying and Merging Raw Datasets
 
 ::: {.panel-tabset}
 
@@ -245,11 +255,11 @@ gs4_auth()
 #| label: tidy-oahu-extents-data
 #| code-fold: true
 #| code-summary: "Tidy Oʻahu Marine Extents Data"
-new_extent_names <- c("island", "moku", "temp1", "temp2", "temp3", "temp4", "temp5", "temp6")
+new_marine_extent_names <- c("island", "moku", "temp1", "temp2", "temp3", "temp4", "temp5", "temp6")
 
-tidied_oahu_marine_extents_df <- oahu_extents_df$marine_oahu %>% 
+tidied_oahu_marine_extents_df <- oahu_extents_dfs$marine_oahu %>% 
   select(1, 2, 8:13) %>% 
-  set_names(new_extent_names) %>%
+  set_names(new_marine_extent_names) %>%
   mutate(island = "Oʻahu") %>%
   fill(moku, .direction = "down") %>%
   mutate(
@@ -293,6 +303,17 @@ paged_table(tidied_oahu_marine_extents_df)
 
 ##### Terrestrial
 
+```{r}
+#| eval: false
+new_terrestrial_extent_names <- c("island", "moku", "habitat")
+tidied_oahu_terrestrial_extent_df <- oahu_extents_dfs$terrestrial_oahu %>% 
+  mutate(island = "Oʻahu",
+         moku = if_else(TERRESTRIAL == "MOKU", ...2, NA_character_)) %>% 
+  fill(c(island, moku), .direction = "down") %>% 
+  slice(-c(1:30)) %>% 
+  select(-c(1, 12:15))
+```
+
 #### Conditions
 
 ```{r}
@@ -321,75 +342,11 @@ tidied_oahu_conditions_df <- map_dfr(tidied_oahu_conditions_dfs_list, ~do.call(t
 paged_table(tidied_oahu_conditions_df)
 ```
 
-```{r}
-#| echo: false
-# tidied_koolaupoko_oahu_conditions <- oahu_condition_dfs$WAIANAE_Oahu %>%
-#   mutate(island = "Oʻahu",
-#          moku = if_else(ISLAND == "MOKU", Oahu, NA_character_),
-#          ecosystem_type = if_else(...3 == "Ecosystem Type", Oahu, NA_character_)) %>%
-#   relocate(island, moku, ecosystem_type, .before = "...1") %>%
-#   fill(c(moku, ecosystem_type), .direction = "down") %>%
-#   rename("typology_class" = ...1,
-#          "descriptor" = ...2,
-#          "unit" = ...3,
-#          "Variable Values: Opening Value" = ISLAND,
-#          "Variable Values: Closing Value" = Oahu,
-#          "Actively Managed or Conserved" = ...6,
-#          "Reference Level Values: Upper Level" = ...7,
-#          "Reference Level Values: Lower Level" = ...8,
-#          "Indicator Values (Rescaled): Opening Value" = ...9,
-#          "Indicator Values (Rescaled): Closing Value" = ...10,
-#          "Indicator Values (Rescaled): Change in Indicator" = ...11) %>% 
-#   select(-c(15:20)) %>%
-#   slice(-c(1:6, 18:27, 39:45, 55:59, 62:67, 83:88)) %>%
-#   fill(c(typology_class, descriptor, unit), .direction = "down") %>%
-#   mutate(typology_class = str_replace_all(typology_class, "\\s+|\\n", " ")) %>%
-#   separate(typology_class, into = c("typology_class_code", "typology"),
-#            sep = "\\) ",
-#            extra = "merge",
-#            fill = "right") %>%
-#   mutate(
-#     typology_class_code = str_trim(str_replace(typology_class_code, "\\(", "")),
-#     typology = str_trim(str_replace(typology, "^\\)", ""))
-#     ) %>%
-#   mutate(
-#     across(where(is.character), ~gsub("([A-Za-z]+)/ ([A-Za-z]+)", "\\1/\\2", .))) %>%
-#   mutate(across(.cols = 8:15, .fns = as.character)) %>%
-#   pivot_longer(
-#     cols = c(8:15),
-#     names_to = "measurement",
-#     values_to = "value"
-#   ) %>%
-#   separate(measurement, into = c("category", "measurement"), sep = ": ", convert = TRUE) %>%
-#   mutate(
-#     category = str_trim(category),
-#     measurement = str_trim(measurement)
-#   ) %>%
-#   mutate(
-#     category = as.factor(category),
-#     measurement = as.factor(measurement),
-#     value = as.numeric(value)
-#   ) %>%
-#     mutate(measurement = coalesce(measurement, "Actively Managed or Conserved"))
-# 
-# #   # Optional: Create a hierarchical structure if applicable
-# #   group_by(category) %>%
-# #   mutate(ID = row_number()) %>%
-# #   ungroup() %>%
-# #   # Pivot part of the table back to a wider format if necessary
-# #   pivot_wider(
-# #     names_from = measurement,
-# #     values_from = value
-# #   ) %>%
-# #   # Rename columns for clarity
-# #   rename_with(~ str_replace_all(., " ", "_"), .cols = everything()) %>% 
-# #   clean_names() %>% 
-# #   select(-id)
-```
-
 :::
 
-### Export Tidied Data
+## Data Exportation
+
+### Exporting Processed Data
 
 ```{r}
 #| label: export-tidied-dfs-to-csv
@@ -399,8 +356,10 @@ tidied_dfs_list <- list(
   list(df = tidied_oahu_marine_extents_df, desc_name = "oahu-marine-extents")
 )
 
-map(tidied_dfs_list, ~export_tidied_dfs_csv(.x$df, .x$desc_name))
+map(tidied_dfs_list, ~export_tidied_dfs_to_csv(.x$df, .x$desc_name))
 ```
+
+### Generating Data Dictionaries
 
 ## Visualizations
 
