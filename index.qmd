@@ -142,7 +142,8 @@ tidy_conditions_data <- function(df, remove_cols_vect = NULL, remove_rows_vect) 
     measurement = as.factor(measurement),
     value = as.numeric(value)
   ) %>%
-    mutate(measurement = coalesce(measurement, "Actively Managed or Conserved"))
+    mutate(measurement = coalesce(measurement, "Actively Managed or Conserved")) %>% 
+    filter(category != "Indicator Values (Rescaled)")
   
     return(df_tidied)
 }
@@ -352,8 +353,8 @@ paged_table(tidied_oahu_conditions_df)
 #| label: export-tidied-dfs-to-csv
 #| eval: false
 tidied_dfs_list <- list(
-  list(df = tidied_oahu_conditions_df, desc_name = "oahu-conditions"),
-  list(df = tidied_oahu_marine_extents_df, desc_name = "oahu-marine-extents")
+  list(df = tidied_oahu_conditions_df, desc_name = "oahu-conditions")
+#   list(df = tidied_oahu_marine_extents_df, desc_name = "oahu-marine-extents")
 )
 
 map(tidied_dfs_list, ~export_tidied_dfs_to_csv(.x$df, .x$desc_name))
