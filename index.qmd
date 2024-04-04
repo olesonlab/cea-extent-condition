@@ -72,21 +72,117 @@ subset_mhi_dfs <- function(mhi_dfs, subset, island_str = NULL, moku_str = NULL, 
 #| code-fold: true
 #| code-summary: "Function to Export Tidied Dataframes to CSV"
 export_tidied_dfs_to_csv <- function(df, desc_name, dir_path = "data/tidied/") {
-  # Ensure the directory exists; if not, create it
   if (!dir.exists(dir_path)) {
     dir.create(dir_path, recursive = TRUE)
   }
   
-  # Construct the file path with the current date and descriptive name
   file_path <- paste0(dir_path,
                       format(Sys.Date(), "%Y-%m-%d"),
                       "_tidied-", desc_name, ".csv")
   
-  # Write the dataframe to a CSV file
   write.csv(df, file_path, row.names = FALSE)
   
-  # Optionally, print a message indicating where the file was saved
   message("File saved to: ", file_path)
+}
+```
+
+```{r}
+#| label: set-temp-column-names-function
+#| code-fold: true
+#| code-summary: "Function to Set Temporary Column Names"
+set_temp_column_names <- function(df) {
+  df <- rbind(colnames(df), df)
+  
+  colnames(df) <- paste("temp", seq_len(ncol(df)), sep = "_")
+  
+  return(df)
+}
+```
+
+```{r}
+#| label: create-keyword-search-columns 
+#| code-fold: true
+#| code-summary: "Function to Create New Columns Based on Keyword Searches"
+create_keyword_search_columns <- function(df, conditions) {
+  reduce(conditions, function(df, cond) {
+    df %>%
+      mutate(across(everything(), as.character)) %>%
+      mutate(
+        !!sym(cond$new_col_name) := if_else(
+          rowSums(select(., -matches(cond$target_col_name)) == cond$keyword, na.rm = TRUE) > 0,
+          .[[cond$target_col_name]],
+          NA_character_
+        )
+      )
+  }, .init = df)
+}
+```
+
+```{r}
+#| label: fill-cols-down-function
+#| code-fold: true
+#| code-summary: "Function to Efficiently Fill Columns"
+fill_cols_down <- function(df, cols) {
+  df %>%
+    tidyr::fill(!!!syms(cols), .direction = "down")
+}
+```
+
+```{r}
+#| label: relocate-cols-function 
+#| code-fold: true
+#| code-summary: "Function to Relocate Columns to the Front of a Dataframe"
+relocate_cols <- function(df, col_names, before_col) {
+  existing_col_names <- col_names[col_names %in% names(df)]
+  if (before_col %in% names(df)) {
+    df %>% 
+      relocate(all_of(existing_col_names), .before = all_of(before_col))
+  } else {
+    warning("The specified 'before_col' does not exist in the dataframe. Relocating to the beginning.")
+    df %>% 
+      relocate(all_of(existing_col_names))
+  }
+}
+```
+
+```{r}
+#| label: remove-undesired-values-function
+#| code-fold: true
+#| code-summary: "Function to Remove Undesired Values"
+remove_undesired_vals <- function(df) {
+  df %>% 
+    slice(-1) %>% 
+    filter(!(is.na(temp_1) & is.na(temp_2))) %>% 
+    select(where(~ !all(is.na(.)))) 
+}
+```
+
+```{r}
+#| label: create-column-from-regex-function
+#| code-fold: true
+#| code-summary: "Function to Create New Columns Based on Regular Expressions"
+create_column_from_regex <- function(df, source_column, new_column, regex_pattern) {
+  df %>% 
+    mutate(!!new_column := str_extract(!!sym(source_column), regex_pattern)) %>% 
+    select(-source_column)
+}
+```
+
+```{r}
+#| label: separate-columns-functions
+#| code-fold: true
+#| code-summary: "Function to Separate Columns"
+separate_columns <- function(df, specifications) {
+  reduce(specifications, function(df, spec) {
+    df %>% 
+      separate(
+        !!spec$source_column,
+        into = spec$into,
+        sep = spec$sep,
+        convert = spec$convert
+      ) %>%
+      mutate(across(all_of(spec$into), str_trim))
+  }, .init = df)
 }
 ```
 
@@ -94,58 +190,36 @@ export_tidied_dfs_to_csv <- function(df, desc_name, dir_path = "data/tidied/") {
 #| label: tidy-oahu-conditions-data-function
 #| code-fold: true
 #| code-summary: "Function to Tidy Oʻahu Conditions Data"
-tidy_conditions_data <- function(df, remove_cols_vect = NULL, remove_rows_vect) {
-  df_tidied <- df %>%
-  mutate(island = "Oʻahu",
-         moku = if_else(ISLAND == "MOKU", Oahu, NA_character_),
-         ecosystem_type = if_else(...3 == "Ecosystem Type", Oahu, NA_character_)) %>%
-  relocate(island, moku, ecosystem_type, .before = "...1") %>%
-  fill(c(moku, ecosystem_type), .direction = "down") %>%
-  rename("typology_class" = ...1,
-         "descriptor" = ...2,
-         "unit" = ...3,
-         "Variable Values: Opening Value" = ISLAND,
-         "Variable Values: Closing Value" = Oahu,
-         "Actively Managed or Conserved" = ...6,
-         "Reference Level Values: Upper Level" = ...7,
-         "Reference Level Values: Lower Level" = ...8,
-         "Indicator Values (Rescaled): Opening Value" = ...9,
-         "Indicator Values (Rescaled): Closing Value" = ...10,
-         "Indicator Values (Rescaled): Change in Indicator" = ...11) %>% 
-    {if (!is.null(remove_cols_vect)) select(., -all_of(remove_cols_vect)) else .} %>% 
-  slice(-remove_rows_vect) %>%
-  fill(c(typology_class, descriptor, unit), .direction = "down") %>%
-  mutate(typology_class = str_replace_all(typology_class, "\\s+|\\n", " ")) %>%
-  separate(typology_class, into = c("typology_class_code", "typology"),
-           sep = "\\) ",
-           extra = "merge",
-           fill = "right") %>%
+tidy_conditions_data <- function(df) {
+  df %>%
+  set_temp_column_names() %>%
+  create_keyword_search_columns(oahu_conditions_keyword_searches) %>%
+  fill_cols_down(c("island", "moku", "ecosystem_type")) %>% 
+  relocate_cols(., c("island", "moku", "ecosystem_type"), "temp_1") %>% 
+  remove_undesired_vals() %>% 
+  set_names(rename_oahu_conditions_cols) %>% 
+  filter(!(descriptor %in% c("Indicators", "Descriptor")) & 
+       !grepl("\\*", typology_class) & 
+       !grepl("\\^", typology_class)) %>% 
+  pivot_longer(., cols = c(7:14), names_to = "categories", values_to = "value"
+  ) %>% 
+  separate_columns(oahu_conditions_cols_to_sep) %>% 
+  fill_cols_down(., c("class_code", "typology", "unit")) %>% 
   mutate(
-    typology_class_code = str_trim(str_replace(typology_class_code, "\\(", "")),
-    typology = str_trim(str_replace(typology, "^\\)", ""))
-    ) %>%
+    class_code = str_remove(class_code, "^\\(Class "),
+    measurement = if_else(is.na(measurement), "Actively Managed or Conserved", measurement),
+    island = gsub("Oahu", "Oʻahu", island),
+    moku = gsub("Ewa", "ʻEwa", moku)) %>% 
   mutate(
-    across(where(is.character), ~gsub("([A-Za-z]+)/ ([A-Za-z]+)", "\\1/\\2", .))) %>%
-  mutate(across(.cols = 8:15, .fns = as.character)) %>%
-  pivot_longer(
-    cols = c(8:15),
-    names_to = "measurement",
-    values_to = "value"
-  ) %>%
-  separate(measurement, into = c("category", "measurement"), sep = ": ", convert = TRUE) %>%
-  mutate(
-    category = str_trim(category),
-    measurement = str_trim(measurement)
-  ) %>%
-  mutate(
-    category = as.factor(category),
-    measurement = as.factor(measurement),
-    value = as.numeric(value)
-  ) %>%
-    mutate(measurement = coalesce(measurement, "Actively Managed or Conserved")) %>% 
-    filter(category != "Indicator Values (Rescaled)")
-  
-    return(df_tidied)
+    across(where(is.character), str_trim), 
+    across(where(is.character), 
+           ~gsub("/\\s+", "/", .)), 
+    across(c(1:9), as.factor), 
+    unit = if_else(descriptor == "Rugosity (predicted)", "-", unit),
+    category = if_else(ecosystem_type == "Beaches/Dunes" & category == "Actively Managed or Conserved", "Reference Extent Publicly Owned", category),
+    measurement = if_else(ecosystem_type == "Beaches/Dunes" & category == "Reference Extent Publicly Owned", "Reference Extent Publicly Owned", measurement)
+  ) %>% 
+  filter(measurement != "Change in Indicator")
 }
 ```
 
@@ -256,9 +330,20 @@ names(oahu_conditions_dfs)
 #| label: tidy-oahu-extents-data
 #| code-fold: true
 #| code-summary: "Tidy Oʻahu Marine Extents Data"
-new_marine_extent_names <- c("island", "moku", "temp1", "temp2", "temp3", "temp4", "temp5", "temp6")
+#| eval: false
+oahu_extents_keyword_searches <- list(
+  list(keyword = "ISLAND", target_col_name = "temp_1", new_col_name = "island"),
+  list(keyword = "MOKU", target_col_name = "temp_1", new_col_name = "moku")
+)
 
-tidied_oahu_marine_extents_df <- oahu_extents_dfs$marine_oahu %>% 
+tidied_oahu_marine_extents_df <- oahu_extents_dfs$marine_oahu %>%
+  set_temp_column_names() %>%
+  create_keyword_search_columns(oahu_extents_keyword_searches) %>%
+  fill_cols_down(c("island", "moku")) %>% 
+  relocate_cols(., c("island", "moku"), "temp_1") 
+  
+  
+  
   select(1, 2, 8:13) %>% 
   set_names(new_marine_extent_names) %>%
   mutate(island = "Oʻahu") %>%
@@ -321,24 +406,31 @@ tidied_oahu_terrestrial_extent_df <- oahu_extents_dfs$terrestrial_oahu %>%
 #| label: tidy-oahu-conditions-data
 #| code-fold: true
 #| code-summary: "Tidy Oʻahu Conditions Data"
-tidied_oahu_conditions_dfs_list <- list(
-  list(df = oahu_conditions_dfs$waianae_oahu, 
-       remove_cols_vect = c(15:20), 
-       remove_rows_vect = c(1:6, 18:27, 39:45, 55:59, 62:67, 83:88)),
-  list(df = oahu_conditions_dfs$koolaupoko_oahu, 
-       remove_rows_vect = c(1:6, 18:24, 36:42, 55:64, 67:74, 90:96, 98:106)),
-  list(df = oahu_conditions_dfs$ewa_oahu, 
-       remove_rows_vect = c(1:6, 18:23, 35:40, 53:60, 63:71)),
-  list(df = oahu_conditions_dfs$kona_oahu, 
-       remove_rows_vect = c(1:5, 17:22, 34:39, 52:60, 63:71, 87:92, 94:97)),
-  list(df = oahu_conditions_dfs$koolauloa_oahu, 
-       remove_rows_vect = c(1:5, 17:22, 34:39, 52:56, 59:64, 80:84, 86:89, 95:103)),
-  list(df = oahu_conditions_dfs$waialua_oahu, 
-       remove_rows_vect = c(1:5, 17:22, 34:39, 52:56, 59:64, 80:85))
+#| warning: false
+oahu_conditions_keyword_searches <- list(
+  list(keyword = "ISLAND", target_col_name = "temp_5", new_col_name = "island"),
+  list(keyword = "MOKU", target_col_name = "temp_5", new_col_name = "moku"),
+  list(keyword = "Ecosystem Type", target_col_name = "temp_5", new_col_name = "ecosystem_type")
 )
 
-tidied_oahu_conditions_df <- map_dfr(tidied_oahu_conditions_dfs_list, ~do.call(tidy_conditions_data, .x)) %>% 
-  mutate(moku = gsub("Ewa", "ʻEwa", moku))
+rename_oahu_conditions_cols <- c("island", "moku", "ecosystem_type", "typology_class",
+                        "descriptor", "unit", "Variable Values: Opening Value",
+                        "Variable Values: Closing Value", 
+                        "Actively Managed or Conserved", 
+                        "Reference Level Values: Upper Level",
+                        "Reference Level Values: Lower Level",
+                        "Indicator Values (Rescaled): Opening Value",
+                        "Indicator Values (Rescaled): Closing Value",
+                        "Indicator Values (Rescaled): Change in Indicator")
+
+oahu_conditions_cols_to_sep <- list(
+  list(source_column = "categories", into = c("category", "measurement"), sep = ": ", convert = TRUE
+  ),
+  list(source_column = "typology_class", into = c("class_code", "typology"), sep = "\\) ", convert = TRUE
+  )
+)
+
+tidied_oahu_conditions_df <- map_dfr(oahu_conditions_dfs, tidy_conditions_data)
 
 paged_table(tidied_oahu_conditions_df)
 ```
