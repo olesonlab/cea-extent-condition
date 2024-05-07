@@ -11,11 +11,13 @@ execute:
   warning: false
 
 website:
-  title: "Hawaii Coastal Ecosystem Extents and Conditions"
+  title: "Making it Count: Ecosystem Accounting in the Main Hawaiian Islands"
   navbar:
     left:
       - href: index.qmd
-        text: Home
+        text: Dashboard
+      - href: data-processing.qmd
+        text: Data Processing
     back-to-top-navigation: true
     
 format:
@@ -31,3 +33,9 @@ format:
       <br>
       ![](/www/logos/uhm-logo.png) 
       <br><br>
+      ![](/www/logos/pew-research-center-logo.png) 
+      <br><br><center>
+      ![](/www/logos/sea-grant-logo.png){height="150"}
+      <br><br>
+      ![](/www/logos/pi-casc-logo.png){height="150"}
+      <br><br></center>

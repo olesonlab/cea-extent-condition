@@ -1,0 +1,12 @@
+name: download-current-data-app
+title: download-current-data-app
+username: aceria
+account: aceria
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 11957378
+bundleId: 8589005
+url: https://aceria.shinyapps.io/download-current-data-app/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
