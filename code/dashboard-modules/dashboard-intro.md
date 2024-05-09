@@ -8,7 +8,7 @@ editor:
 
 <center>
 <img src="www/logos/uhm-logo.png" alt="" align="center" width="200"> <br><br>
-    <img src="www/logos/pew-research-center-logo.png" alt="" align="center" width="200"> <br><br>
+    <img src="www/logos/pew-research-center-logo.png" alt="" align="center" width="200"><br><br>
     <img src="www/logos/sea-grant-logo.png" alt="" align="center" height="200"> <br><br>
     <img src="www/logos/pi-casc-logo.png" alt="" align="center" height="200"> <br><br>
 </center>

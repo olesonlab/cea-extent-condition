@@ -2,7 +2,7 @@ if (!requireNamespace("pacman", quietly = TRUE)) {
   install.packages("pacman")
 }
 
-pacman::p_load(shiny, googlesheets4, dplyr, tidyr, purrr, stringr, yaml, progress, gt, readr)
+pacman::p_load(googlesheets4, here, shiny, googlesheets4, dplyr, tidyr, purrr, stringr, yaml, progress, gt, readr)
 
 import_mhi_extents_and_conditions_gs <- function(url_str) {
   imported_sheets <- gs4_get(url_str) %>%
@@ -202,13 +202,13 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       textInput("conditions_url", "Step 1: Enter Conditions Google Sheets URL"),
-      tags$div("This step will take a few minutes to complete.", style = "color: red;"),
+      # tags$div("This step will take a few minutes to complete.", style = "color: red;"),
       div(style = "margin-top: 10px;"),
       actionButton("load_data", "Load Data"),
       
       div(style = "margin-top: 10px;"),
       checkboxGroupInput("dataset_selector", "Step 2: Select Dataset", choices = NULL),
-      tags$div("This section will populate once Step 1 is complete.", style = "color: red;"),
+      tags$div("This section will populate once Step 2 is complete.", style = "color: red;"),
       div(style = "margin-top: 10px;"),
       actionButton("toggle_selection", "Select/Deselect All"),
       
@@ -226,6 +226,11 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  gs4_auth(
+    path = here::here("code/dashboard-modules/download-current-data-app/keys/key.json"),
+    scopes = "spreadsheets.readonly"
+      )
+  
   mhi_conditions_dfs <- reactiveVal()
   choices <- reactiveVal(character(0))
   file_name <- reactiveVal(paste0(format(Sys.Date(), "%Y-%m-%d"), "_name-of-datasets"))
@@ -237,26 +242,25 @@ server <- function(input, output, session) {
   observeEvent(input$load_data, {
     req(input$conditions_url)
     
-    key_path <- "documentation/cea-extent-conditions-gs-service-acct.json"
+    showModal(modalDialog(
+      title = "Loading Data",
+      div("Note: This step will take a few minues to complete.", icon("refresh", class = "fa-spin"), style = "text-align: center;")
+    ))
     
-    gs4_auth(path = key_path, email = "cea-extents-conditions@cea-extent-conditions.iam.gserviceaccount.com")
+    mhi_conditions_dfs_data <- import_mhi_extents_and_conditions_gs(input$conditions_url)
     
-    progress_bar <- withProgress(message = "Loading data...", {
-      mhi_conditions_dfs_data <- import_mhi_extents_and_conditions_gs(input$conditions_url)
-      
-      Sys.sleep(2)
-      
-      mhi_conditions_dfs_data <- mhi_conditions_dfs_data[!grepl("^clean_", names(mhi_conditions_dfs_data))]
-      
-      mhi_conditions_dfs(mhi_conditions_dfs_data)
-      
-      choices(names(mhi_conditions_dfs_data))
-      updateCheckboxGroupInput(session, "dataset_selector", "Step 2: Select Dataset", choices = choices(), selected = NULL)
-    })
+    Sys.sleep(2)
     
-    output$progress <- renderUI({
-      progress_bar
-    })
+    mhi_conditions_dfs_data <- mhi_conditions_dfs_data[!grepl("^clean_", names(mhi_conditions_dfs_data))]
+    
+    mhi_conditions_dfs(mhi_conditions_dfs_data)
+    
+    choices(names(mhi_conditions_dfs_data))
+    updateCheckboxGroupInput(session, "dataset_selector", "Step 2: Select Dataset", choices = choices(), selected = NULL)
+    
+    removeModal()
+    
+    showNotification("Data successfully loaded!", duration = 10)
   })
   
   observeEvent(input$toggle_selection, {
@@ -282,7 +286,7 @@ server <- function(input, output, session) {
         use_search = TRUE,
         use_filters = TRUE,
         use_resizers = TRUE,
-        page_size_default = 20)
+        page_size_default = 10)
   })
   
   output$download_data <- downloadHandler(
@@ -297,8 +301,19 @@ server <- function(input, output, session) {
       })
       combined_dataset <- do.call(rbind, datasets)
       readr::write_excel_csv(combined_dataset, file)
+      
+      # Deauthenticate after export
+      gs4_deauth()
+      
+      showNotification("Data successfully exported as CSV file and deauthenticated from Google Sheets API!", type = "message", duration = 10)
     }
   )
 }
 
 shinyApp(ui = ui, server = server)
+
+# Path to your key.json file
+key_file <- here::here("code/dashboard-modules/download-current-data-app/keys/key.json")
+
+# Check if the key.json file represents a service account
+print(gargle::check_is_service_account(key_file))

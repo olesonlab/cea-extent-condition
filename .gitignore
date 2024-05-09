@@ -45,4 +45,4 @@ renv/
 _freeze/
 data/
 code/gsheets_urls.yml
-documentation/cea-extent-conditions-gs-service-acct.json
+code/dashboard-modules/download-current-data-app/keys/

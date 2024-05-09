@@ -7,7 +7,9 @@ library(wesanderson)
 
 mokus_sf <- st_read("data/spatial/moku/Moku_NEW.shp", quiet = TRUE) %>% 
   janitor::clean_names() %>% 
-  mutate(name = str_remove(name2, "\\s\\w+"))
+  mutate(name = str_remove(name2, "\\s\\w+"),
+         name2 = if_else(name2 == "KALAWA", "HALAWA", name2),
+         name = if_else(name == "KALAWA", "HALAWA", name)) 
 
 # Find a point on the surface of each geometry
 points_on_surface <- st_point_on_surface(mokus_sf)

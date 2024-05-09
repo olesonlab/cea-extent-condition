@@ -493,7 +493,53 @@ tidied_mhi_conditions_df <- map_dfr(mhi_dfs$conditions, ~ tidy_conditions_data(
   keyword_searches = conditions_keyword_searches, 
   col_names = rename_conditions_cols, 
   cols_to_sep = conditions_cols_to_sep
-))
+)) %>%
+  mutate(
+    moku = if_else(moku == "Ko‘olau", "Koʻolau", moku),
+    moku_name2 = case_when(
+      moku == "Kona" & island == "Hawaiʻi" ~ "KONA HAW",
+      moku == "Kāʻu" & island == "Hawaiʻi" ~ "KAU",
+      moku == "Puna" & island == "Hawaiʻi" ~ "PUNA HAW",
+      moku == "Hilo" & island == "Hawaiʻi" ~ "HILO",
+      moku == "Hāmākua" & island == "Hawaiʻi" ~ "HAMAKUA",
+      moku == "Kohala" & island == "Hawaiʻi" ~ "KOHALA",
+      moku == "Waiʻanae" & island == "Oʻahu" ~ "WAIANAE",
+      moku == "ʻEwa" & island == "Oʻahu" ~ "EWA",
+      moku == "Kona" & island == "Oʻahu" ~ "KONA OAH",
+      moku == "Koʻolaupoko" & island == "Oʻahu" ~ "KOOLAUPOKO",
+      moku == "Koʻolauloa" & island == "Oʻahu" ~ "KOOLAULOA",
+      moku == "Waialua" & island == "Oʻahu" ~ "WAIALUA",
+      moku == "Mana" & island == "Kauaʻi" ~ "MANA",
+      moku == "Kona" & island == "Kauaʻi" ~ "KONA KAU",
+      moku == "Puna" & island == "Kauaʻi" ~ "PUNA KAU",
+      moku == "Koʻolau" & island == "Kauaʻi" ~ "KOOLAU KAU",
+      moku == "Haleleʻa" & island == "Kauaʻi" ~ "HALELEA",
+      moku == "Nāpali" & island == "Kauaʻi" ~ "NAPALI",
+      moku == "Kona" & island == "Kahoʻolawe" ~ "KONA KAH",
+      moku == "Koʻolau" & island == "Kahoʻolawe" ~ "KOOLAU KAH",
+      moku == "Kona" & island == "Lānaʻi" ~ "KONA LAN",
+      moku == "Koʻolau" & island == "Lānaʻi" ~ "KOOLAU LAN",
+      moku == "Kualuakoʻi" & island == "Molokaʻi" ~ "KALUAKOI",
+      moku == "Pālāʻau" & island == "Molokaʻi" ~ "PALAAU",
+      moku == "Kona" & island == "Molokaʻi" ~ "KONA MOL",
+      moku == "Hālawa" & island == "Molokaʻi" ~ "HALAWA",
+      moku == "Koʻolau" & island == "Molokaʻi" ~ "KOOLAU MOL",
+      moku == "Lāhainā" & island == "Maui" ~ "LAHAINA",
+      moku == "Kealaloloa" & island == "Maui" ~ "KEALALOLOA",
+      moku == "Kula" & island == "Maui" ~ "KULA",
+      moku == "Honuaʻula" & island == "Maui" ~ "HONUAULA",
+      moku == "Kahikinui" & island == "Maui" ~ "KAHIKINUI",
+      moku == "Kaupo" & island == "Maui" ~ "KAUPO",
+      moku == "Kīpahulu" & island == "Maui" ~ "KIPAHULU",
+      moku == "Hāna" & island == "Maui" ~ "HANA",
+      moku == "Koʻolau" & island == "Maui" ~ "KOOLAU MAU",
+      moku == "Hāmākualoa" & island == "Maui" ~ "HAMAKUALOA",
+      moku == "Hāmākuapoko" & island == "Maui" ~ "HAMAKUAPOKO",
+      moku == "Wailuku" & island == "Maui" ~ "WAILUKU",
+      moku == "Kāʻanapali" & island == "Maui" ~ "KAANAPALI"
+    )
+  ) %>% 
+  relocate(moku_name2, .after = moku)
 
 paged_table(tidied_mhi_conditions_df)
 ```
