@@ -16,6 +16,7 @@ current_date <- format(Sys.Date(), '%m/%d/%Y')
 ```
 
 **Created By**: Alemarie Ceria <br> 
+**Date Created:** 05/06/2024 <br>
 **Last Updated**: `r current_date` <br><br>
 
 *© 2024 Oleson Lab, University of Hawaii at Manoa*

@@ -197,39 +197,6 @@ conditions_cols_to_sep <- list(
   )
 )
 
-# ui <- fluidPage(
-#   # titlePanel(HTML("<b><center>Exploring the Condition Accounts of the Main Hawaiian Islands: A Data Viewing and Export Tool</center></b>")),
-#   sidebarLayout(
-#     sidebarPanel(
-#       textInput("email", "Service Account Email:"),
-#       fileInput("key", "Upload JSON Key File:"),
-#       actionButton("authenticate", "Authenticate"),
-#       div(style = "border-top: 1px solid #ccc; margin-top: 20px;"),
-# 
-#       div(style = "margin-top: 10px;"),
-#       textInput("conditions_url", "Step 1: Enter Conditions Google Sheets URL"),
-#       div(style = "margin-top: 10px;"),
-#       actionButton("load_data", "Load Data"),
-#       
-#       div(style = "margin-top: 10px;"),
-#       checkboxGroupInput("dataset_selector", "Step 2: Select Dataset", choices = NULL),
-#       tags$div("This section will populate once Step 2 is complete.", style = "color: red;"),
-#       div(style = "margin-top: 10px;"),
-#       actionButton("toggle_selection", "Select/Deselect All"),
-#       
-#       div("Step 3: Download Dataset as CSV", style = "font-weight: bold; margin-top: 10px;"),
-#       div(style = "margin-top: 10px;"),
-#       textInput("file_name", "Enter File Name", value = paste0(format(Sys.Date(), "%Y-%m-%d"), "_name-of-dataset")),
-#       downloadButton("download_data", "Download", style = "margin-top: 5px;"),
-#       
-#       div(id = "progress")
-#     ),
-#     mainPanel(
-#       gt_output("selected_dataset") 
-#     )
-#   )
-# )
-
 ui <- fluidPage(
   # Reintroduced the title panel with HTML for centered and bold text
   # titlePanel(HTML("<b><center>Exploring the Condition Accounts of the Main Hawaiian Islands: A Data Viewing and Export Tool</center></b>")),
@@ -258,7 +225,7 @@ ui <- fluidPage(
       # Step 3: Selection Tools
       div(style = "margin-top: 20px;"),
       h4(HTML("<b>Step 3: Select Dataset(s)</b>"), style = "margin-top: 10px;"),
-      tags$div("This section will populate once data is loaded. Once loaded, please allow a moment for the data tables to load when making a selection.", style = "color: red;"),
+      tags$div("This section will populate after the data has been loaded. Please allow a brief moment for the data tables to generate/update when making selections.", style = "color: red;"),
       div(style = "margin-top: 10px;"),
       checkboxGroupInput("dataset_selector", "Select Dataset", choices = NULL),
       actionButton("toggle_selection", "Select/Deselect All"),
@@ -284,7 +251,10 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
-  # Reactive value to track authentication status
+  mhi_conditions_dfs <- reactiveVal()
+  choices <- reactiveVal(character(0))
+  file_name <- reactiveVal(paste0(format(Sys.Date(), "%Y-%m-%d"), "_name-of-datasets"))
+  
   auth_status <- reactiveVal(FALSE)
   
   observe({

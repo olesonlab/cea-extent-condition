@@ -94,5 +94,5 @@ htmltools::includeMarkdown(here::here("code/dashboard-modules/dashboard-intro.md
 #| message: false
 #| warning: false
 library(htmltools)
-tags$iframe(src="https://aceria.shinyapps.io/download-current-data-app/", width="100%", height="1950", frameborder="1")
+tags$iframe(src="https://aceria.shinyapps.io/download-current-data-app/", width="100%", height="1860", frameborder="1")
 ```
