@@ -47,12 +47,5 @@
     "title": "Data Processing",
     "section": "Data Exportation",
     "text": "Data Exportation\n\nExporting Processed Data\n\n\nExport Processed Data\ntidied_dfs_list &lt;- list(\n  list(df = tidied_mhi_conditions_df, desc_name = \"mhi-conditions\")\n#   list(df = tidied_oahu_marine_extents_df, desc_name = \"oahu-marine-extents\")\n)\n\nmap(tidied_dfs_list, ~export_tidied_dfs_to_csv(.x$df, .x$desc_name))\n\n\n\n\nGenerating Data Dictionaries\n\n\nMHI Marine Condition Accounts Data Dictionary\ntidied_mhi_conditions_df %&gt;%\n  make_xray() %&gt;% \n  view_xray()\n\n\n\n\nExpand/collapse all"
-  },
-  {
-    "objectID": "data-processing.html#resources",
-    "href": "data-processing.html#resources",
-    "title": "Data Processing",
-    "section": "Resources",
-    "text": "Resources\n\nEsri | Sentinel-2 Land Cover Explorer\nUnleash the Power of 3D: Crafting Stunning Land Cover Maps with R by Milos Makes Maps"
   }
 ]

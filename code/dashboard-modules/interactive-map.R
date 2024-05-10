@@ -45,7 +45,7 @@ island_labels <- data.frame(
              "MOLOKAI", 
              "MAUI"),
   lat = c(19.351647176347488, 
-          21.648315248200046, 
+          21.59485141420381, 
           22.401295315702967, 
           21.98668405502797, 
           20.387120892420214, 
@@ -53,7 +53,7 @@ island_labels <- data.frame(
           21.33686153447943, 
           21.07848084802507),
   lon = c(-156.18654482636637, 
-          -157.69573354364107, 
+          -157.57739720498617, 
           -159.41289281713267, 
           -160.39025812149933, 
           -156.57098710165647, 
@@ -67,13 +67,13 @@ island_labels <- data.frame(
 # long <- -157.98571042643727
 
 # Oahu centroid
-lat <- 21.45
+lat <- 21.42
 long <- -157.9445
 
 # Create the main map
 m <- leaflet() %>%
   addProviderTiles("Esri.WorldImagery") %>%
-  setView(long, lat, zoom = 10) %>%
+  setView(long, lat, zoom = 9) %>%
   addPolygons(data = mokus_sf, 
               fillColor = "transparent",
               color = "#5BBCD6", 
@@ -89,7 +89,7 @@ m <- leaflet() %>%
                         style = list(
                           color = "white", 
                           fontWeight = "bold", 
-                          fontSize = "15px")
+                          fontSize = "13px")
                       )) %>%
   addLabelOnlyMarkers(data = island_labels, 
                       lng = ~lon, 
@@ -128,7 +128,7 @@ m <- leaflet() %>%
 m <- addMiniMap(
   map = m,
   tiles = providers$Esri.WorldImagery,
-  width = 150,
-  height = 150,
+  width = 100,
+  height = 100,
   position = "bottomleft"
 )

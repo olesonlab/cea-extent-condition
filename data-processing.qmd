@@ -578,8 +578,3 @@ tidied_mhi_conditions_df %>%
   make_xray() %>% 
   view_xray()
 ```
-
-## Resources
-
-- [Esri | Sentinel-2 Land Cover Explorer](https://livingatlas.arcgis.com/landcoverexplorer/#mapCenter=-158.007%2C21.395%2C11&mode=step&timeExtent=2017%2C2022&year=2022)
-- [Unleash the Power of 3D: Crafting Stunning Land Cover Maps with R by Milos Makes Maps](https://www.youtube.com/watch?v=y_Kzg24Ciuo)

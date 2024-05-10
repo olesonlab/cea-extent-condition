@@ -1,14 +1,12 @@
 ---
 format: 
   dashboard:
-    # logo: www/logos/earth-americas-solid.svg
+    logo: www/logos/earth-americas-solid.svg
     scrolling: true
     nav-buttons:
       - icon: github
         href: https://github.com/olesonlab/cea-extent-condition
 ---
-
-## Sidebar {.sidebar} 
 
 ```{r}
 #| echo: false
@@ -34,11 +32,27 @@ if (fs::file_exists(original_file)) {
 }
 ```
 
+# Interactive Visualizations
+
+## Sidebar {.sidebar} 
+
 ```{r}
 htmltools::includeMarkdown(here::here("code/dashboard-modules/dashboard-intro.md"))
 ```
 
-## Row
+## Column
+
+```{r}
+#| title: "Beaches/Dunes Condition Account"
+print("Plot")
+```
+
+```{r}
+#| title: "Tree Cover Condition Account"
+print("Plot")
+```
+
+## Column
 
 ```{r}
 #| title: "Oʻahu Mokus"
@@ -47,11 +61,38 @@ htmltools::includeMarkdown(here::here("code/dashboard-modules/dashboard-intro.md
 invisible({source("code/dashboard-modules/interactive-map.R")})
 m
 ```
+ 
+```{r}
+#| title: "Coral Condition Account"
+print("Plot")
+```
+
+## Column
+
+```{r}
+#| title: "Pavement Condition Account"
+print("Plot")
+```
+
+```{r}
+#| title: "Rock/Boulder Condition Account"
+print("Plot")
+```
+
+# Data Collection 
+
+## Sidebar {.sidebar} 
+
+```{r}
+htmltools::includeMarkdown(here::here("code/dashboard-modules/dashboard-intro.md"))
+```
+
+## Row
 
 ```{r}
 #| title: "Exploring the Condition Accounts of the Main Hawaiian Islands: A Data Viewing and Export Tool"
 #| message: false
 #| warning: false
 library(htmltools)
-tags$iframe(src="https://aceria.shinyapps.io/download-current-data-app/", width="100%", height="500", frameborder="1")
+tags$iframe(src="https://aceria.shinyapps.io/download-current-data-app/", width="100%", height="1950", frameborder="1")
 ```

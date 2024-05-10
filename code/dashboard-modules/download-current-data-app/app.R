@@ -238,8 +238,7 @@ ui <- fluidPage(
     sidebarPanel(
       # Step 1: Authenticate Google Service Account
       h4(HTML("<b>Step 1: Authenticate Google Service Account</b>")),
-      textInput("email", "Service Account Email:"),
-      fileInput("key", "Upload JSON Key File:"),
+      fileInput("key", "Upload JSON Key File"),
       actionButton("authenticate", "Authenticate"),
       
       # Divider
@@ -285,23 +284,20 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
-  mhi_conditions_dfs <- reactiveVal()
-  choices <- reactiveVal(character(0))
-  file_name <- reactiveVal(paste0(format(Sys.Date(), "%Y-%m-%d"), "_name-of-datasets"))
+  # Reactive value to track authentication status
+  auth_status <- reactiveVal(FALSE)
+  
+  observe({
+    showModal(modalDialog(
+      title = HTML("<strong>Notice</strong>"),
+      HTML("<div style='text-align: center; color: red;'>This application is currently only for internal use.</div>"),
+      easyClose = TRUE,
+      footer = modalButton("Close")
+    ))
+  })
   
   observeEvent(input$authenticate, {
-    req(input$email, input$key)  # Ensure both email and key are provided
-    
-    # Validate the email format
-    if (!grepl("^[a-z0-9._%+-]+@[a-z0-9.-]+\\.iam\\.gserviceaccount\\.com$", input$email, ignore.case = TRUE)) {
-      showModal(modalDialog(
-        title = HTML("<strong>Invalid Email Format</strong>"),
-        HTML("<div style='text-align: center;'>The service account email should follow the format: 'something@<project-name>.iam.gserviceaccount.com'.<br><br>Please check your input and try again.</div>"),
-        easyClose = TRUE,
-        footer = modalButton("Close")
-      ))
-      return()
-    }
+    req(input$key)
     
     withProgress(message = 'Authenticating...', {
       setProgress(0.5)
@@ -312,20 +308,21 @@ server <- function(input, output, session) {
         gs4_auth(
           email = input$email, 
           path = key_path,
-          scopes = "https://www.googleapis.com/auth/spreadsheets.readonly")
+          scopes = "https://www.googleapis.com/auth/spreadsheets.readonly"
+        )
         setProgress(1)
+        auth_status(TRUE)  # Set auth_status to TRUE on successful authentication
         showModal(modalDialog(
-          title = HTML("<strong>Authentication Status</strong>"),
-          HTML("<center>Authentication successful!</center>"),
+          title = HTML("<strong>Authentication Successful</strong>"),
+          HTML("<center>Authentication successful! You may now proceed to load data.</center>"),
           easyClose = TRUE,
           footer = modalButton("Close")
         ))
       }, error = function(e) {
         setProgress(1)
         showModal(modalDialog(
-          title = HTML("<strong>Authentication Status</strong>"),
-          HTML("<center>Authentication successful!</center>"),
-          HTML(paste("<center>Authentication failed</center>:", e$message)),
+          title = HTML("<strong>Authentication Failed</strong>"),
+          HTML("<center>Authentication failed. Please check your credentials and try again.</center>"),
           easyClose = TRUE,
           footer = modalButton("Close")
         ))
@@ -333,34 +330,16 @@ server <- function(input, output, session) {
     })
   })
   
-  observeEvent(input$authenticate, {
-    email <- input$email
-    key <- input$key
-    if (is.null(email) || is.null(key)) {
-      output$auth_message <- renderText("Please provide both email and key file.")
+  observeEvent(input$load_data, {
+    if (!auth_status()) {
+      showModal(modalDialog(
+        title = HTML("<strong>Authentication Required</strong>"),
+        HTML("<div style='text-align: center;'>Please authenticate your service account at Step 1 before attempting to load data.</div>"),
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
       return()
     }
-    key_path <- key$datapath
-    if (file.exists(key_path)) {
-      tryCatch({
-        gs4_auth(
-          email = email, 
-          path = key_path,
-          scopes = "https://www.googleapis.com/auth/spreadsheets.readonly")
-        output$auth_message <- renderText("Authentication successful!")
-      }, error = function(e) {
-        output$auth_message <- renderText(paste("Authentication failed:", e$message))
-      })
-    } else {
-      output$auth_message <- renderText("Key file not found.")
-    }
-  })
-  
-  observeEvent(input$file_name, {
-    file_name(input$file_name)
-  })
-  
-  observeEvent(input$load_data, {
     req(input$conditions_url)
     
     showModal(modalDialog(
