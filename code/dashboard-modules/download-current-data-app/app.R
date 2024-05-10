@@ -197,43 +197,164 @@ conditions_cols_to_sep <- list(
   )
 )
 
+# ui <- fluidPage(
+#   # titlePanel(HTML("<b><center>Exploring the Condition Accounts of the Main Hawaiian Islands: A Data Viewing and Export Tool</center></b>")),
+#   sidebarLayout(
+#     sidebarPanel(
+#       textInput("email", "Service Account Email:"),
+#       fileInput("key", "Upload JSON Key File:"),
+#       actionButton("authenticate", "Authenticate"),
+#       div(style = "border-top: 1px solid #ccc; margin-top: 20px;"),
+# 
+#       div(style = "margin-top: 10px;"),
+#       textInput("conditions_url", "Step 1: Enter Conditions Google Sheets URL"),
+#       div(style = "margin-top: 10px;"),
+#       actionButton("load_data", "Load Data"),
+#       
+#       div(style = "margin-top: 10px;"),
+#       checkboxGroupInput("dataset_selector", "Step 2: Select Dataset", choices = NULL),
+#       tags$div("This section will populate once Step 2 is complete.", style = "color: red;"),
+#       div(style = "margin-top: 10px;"),
+#       actionButton("toggle_selection", "Select/Deselect All"),
+#       
+#       div("Step 3: Download Dataset as CSV", style = "font-weight: bold; margin-top: 10px;"),
+#       div(style = "margin-top: 10px;"),
+#       textInput("file_name", "Enter File Name", value = paste0(format(Sys.Date(), "%Y-%m-%d"), "_name-of-dataset")),
+#       downloadButton("download_data", "Download", style = "margin-top: 5px;"),
+#       
+#       div(id = "progress")
+#     ),
+#     mainPanel(
+#       gt_output("selected_dataset") 
+#     )
+#   )
+# )
+
 ui <- fluidPage(
+  # Reintroduced the title panel with HTML for centered and bold text
   # titlePanel(HTML("<b><center>Exploring the Condition Accounts of the Main Hawaiian Islands: A Data Viewing and Export Tool</center></b>")),
+  
   sidebarLayout(
     sidebarPanel(
-      textInput("conditions_url", "Step 1: Enter Conditions Google Sheets URL"),
-      # tags$div("This step will take a few minutes to complete.", style = "color: red;"),
+      # Step 1: Authenticate Google Service Account
+      h4(HTML("<b>Step 1: Authenticate Google Service Account</b>")),
+      textInput("email", "Service Account Email:"),
+      fileInput("key", "Upload JSON Key File:"),
+      actionButton("authenticate", "Authenticate"),
+      
+      # Divider
+      div(style = "border-top: 1px solid #ccc; margin-top: 20px;"),
       div(style = "margin-top: 10px;"),
+      
+      # Step 2: Enter Conditions URL
+      div(style = "margin-top: 20px;"),
+      h4(HTML("<b>Step 2: Enter Conditions Google Sheets URL</b>"), style = "margin-top: 10px;"),
+      textInput("conditions_url", "Conditions Google Sheets URL"),
       actionButton("load_data", "Load Data"),
       
+      # Divider
+      div(style = "border-top: 1px solid #ccc; margin-top: 20px;"),
       div(style = "margin-top: 10px;"),
-      checkboxGroupInput("dataset_selector", "Step 2: Select Dataset", choices = NULL),
-      tags$div("This section will populate once Step 2 is complete.", style = "color: red;"),
+      
+      # Step 3: Selection Tools
+      div(style = "margin-top: 20px;"),
+      h4(HTML("<b>Step 3: Select Dataset(s)</b>"), style = "margin-top: 10px;"),
+      tags$div("This section will populate once data is loaded. Once loaded, please allow a moment for the data tables to load when making a selection.", style = "color: red;"),
       div(style = "margin-top: 10px;"),
+      checkboxGroupInput("dataset_selector", "Select Dataset", choices = NULL),
       actionButton("toggle_selection", "Select/Deselect All"),
       
-      div("Step 3: Download Dataset as CSV", style = "font-weight: bold; margin-top: 10px;"),
+      # Divider
+      div(style = "border-top: 1px solid #ccc; margin-top: 20px;"),
       div(style = "margin-top: 10px;"),
+      
+      # Step 4: Download Dataset
+      div(style = "margin-top: 20px;"),
+      h4(HTML("<b>Step 4: Download Dataset as CSV</b>"), style = "margin-top: 10px;"),
       textInput("file_name", "Enter File Name", value = paste0(format(Sys.Date(), "%Y-%m-%d"), "_name-of-dataset")),
       downloadButton("download_data", "Download", style = "margin-top: 5px;"),
       
+      # Placeholder for potential progress bars or other dynamic UI elements
       div(id = "progress")
     ),
     mainPanel(
-      gt_output("selected_dataset") 
+      # Main panel for displaying the selected dataset
+      gt_output("selected_dataset")
     )
   )
 )
 
 server <- function(input, output, session) {
-  gs4_auth(
-    path = here::here("code/dashboard-modules/download-current-data-app/keys/key.json"),
-    scopes = "spreadsheets.readonly"
-      )
-  
   mhi_conditions_dfs <- reactiveVal()
   choices <- reactiveVal(character(0))
   file_name <- reactiveVal(paste0(format(Sys.Date(), "%Y-%m-%d"), "_name-of-datasets"))
+  
+  observeEvent(input$authenticate, {
+    req(input$email, input$key)  # Ensure both email and key are provided
+    
+    # Validate the email format
+    if (!grepl("^[a-z0-9._%+-]+@[a-z0-9.-]+\\.iam\\.gserviceaccount\\.com$", input$email, ignore.case = TRUE)) {
+      showModal(modalDialog(
+        title = HTML("<strong>Invalid Email Format</strong>"),
+        HTML("<div style='text-align: center;'>The service account email should follow the format: 'something@<project-name>.iam.gserviceaccount.com'.<br><br>Please check your input and try again.</div>"),
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+      return()
+    }
+    
+    withProgress(message = 'Authenticating...', {
+      setProgress(0.5)
+      Sys.sleep(1)  # Simulate some delay
+      
+      key_path <- input$key$datapath
+      tryCatch({
+        gs4_auth(
+          email = input$email, 
+          path = key_path,
+          scopes = "https://www.googleapis.com/auth/spreadsheets.readonly")
+        setProgress(1)
+        showModal(modalDialog(
+          title = HTML("<strong>Authentication Status</strong>"),
+          HTML("<center>Authentication successful!</center>"),
+          easyClose = TRUE,
+          footer = modalButton("Close")
+        ))
+      }, error = function(e) {
+        setProgress(1)
+        showModal(modalDialog(
+          title = HTML("<strong>Authentication Status</strong>"),
+          HTML("<center>Authentication successful!</center>"),
+          HTML(paste("<center>Authentication failed</center>:", e$message)),
+          easyClose = TRUE,
+          footer = modalButton("Close")
+        ))
+      })
+    })
+  })
+  
+  observeEvent(input$authenticate, {
+    email <- input$email
+    key <- input$key
+    if (is.null(email) || is.null(key)) {
+      output$auth_message <- renderText("Please provide both email and key file.")
+      return()
+    }
+    key_path <- key$datapath
+    if (file.exists(key_path)) {
+      tryCatch({
+        gs4_auth(
+          email = email, 
+          path = key_path,
+          scopes = "https://www.googleapis.com/auth/spreadsheets.readonly")
+        output$auth_message <- renderText("Authentication successful!")
+      }, error = function(e) {
+        output$auth_message <- renderText(paste("Authentication failed:", e$message))
+      })
+    } else {
+      output$auth_message <- renderText("Key file not found.")
+    }
+  })
   
   observeEvent(input$file_name, {
     file_name(input$file_name)
@@ -243,7 +364,7 @@ server <- function(input, output, session) {
     req(input$conditions_url)
     
     showModal(modalDialog(
-      title = "Loading Data",
+      title = HTML("<strong>Loading Data</strong>"),
       div("Note: This step will take a few minues to complete.", icon("refresh", class = "fa-spin"), style = "text-align: center;")
     ))
     
@@ -272,21 +393,78 @@ server <- function(input, output, session) {
   })
   
   output$selected_dataset <- render_gt({
-    req(input$dataset_selector)
-    datasets <- lapply(input$dataset_selector, function(selected_dataset) {
-      tidy_conditions_data(mhi_conditions_dfs()[[selected_dataset]], conditions_keyword_searches, rename_conditions_cols, conditions_cols_to_sep)
+    req(input$dataset_selector)  
+    withProgress(message = 'Generating table...', value = 0, {
+      incProgress(1/3, detail = "Preparing data...")  
+      
+      datasets <- lapply(input$dataset_selector, function(selected_dataset) {
+        tidy_conditions_data(mhi_conditions_dfs()[[selected_dataset]], conditions_keyword_searches, rename_conditions_cols, conditions_cols_to_sep) 
+      })
+      incProgress(1/3, detail = "Combining data...")  
+      
+      combined_dataset <- do.call(rbind, datasets)
+      
+      combined_dataset <- combined_dataset %>%
+        mutate(
+          moku = if_else(moku == "Ko‘olau", "Koʻolau", moku),
+          moku_name2 = case_when(
+            moku == "Kona" & island == "Hawaiʻi" ~ "KONA HAW",
+            moku == "Kāʻu" & island == "Hawaiʻi" ~ "KAU",
+            moku == "Puna" & island == "Hawaiʻi" ~ "PUNA HAW",
+            moku == "Hilo" & island == "Hawaiʻi" ~ "HILO",
+            moku == "Hāmākua" & island == "Hawaiʻi" ~ "HAMAKUA",
+            moku == "Kohala" & island == "Hawaiʻi" ~ "KOHALA",
+            moku == "Waiʻanae" & island == "Oʻahu" ~ "WAIANAE",
+            moku == "ʻEwa" & island == "Oʻahu" ~ "EWA",
+            moku == "Kona" & island == "Oʻahu" ~ "KONA OAH",
+            moku == "Koʻolaupoko" & island == "Oʻahu" ~ "KOOLAUPOKO",
+            moku == "Koʻolauloa" & island == "Oʻahu" ~ "KOOLAULOA",
+            moku == "Waialua" & island == "Oʻahu" ~ "WAIALUA",
+            moku == "Mana" & island == "Kauaʻi" ~ "MANA",
+            moku == "Kona" & island == "Kauaʻi" ~ "KONA KAU",
+            moku == "Puna" & island == "Kauaʻi" ~ "PUNA KAU",
+            moku == "Koʻolau" & island == "Kauaʻi" ~ "KOOLAU KAU",
+            moku == "Haleleʻa" & island == "Kauaʻi" ~ "HALELEA",
+            moku == "Nāpali" & island == "Kauaʻi" ~ "NAPALI",
+            moku == "Kona" & island == "Kahoʻolawe" ~ "KONA KAH",
+            moku == "Koʻolau" & island == "Kahoʻolawe" ~ "KOOLAU KAH",
+            moku == "Kona" & island == "Lānaʻi" ~ "KONA LAN",
+            moku == "Koʻolau" & island == "Lānaʻi" ~ "KOOLAU LAN",
+            moku == "Kualuakoʻi" & island == "Molokaʻi" ~ "KALUAKOI",
+            moku == "Pālāʻau" & island == "Molokaʻi" ~ "PALAAU",
+            moku == "Kona" & island == "Molokaʻi" ~ "KONA MOL",
+            moku == "Hālawa" & island == "Molokaʻi" ~ "HALAWA",
+            moku == "Koʻolau" & island == "Molokaʻi" ~ "KOOLAU MOL",
+            moku == "Lāhainā" & island == "Maui" ~ "LAHAINA",
+            moku == "Kealaloloa" & island == "Maui" ~ "KEALALOLOA",
+            moku == "Kula" & island == "Maui" ~ "KULA",
+            moku == "Honuaʻula" & island == "Maui" ~ "HONUAULA",
+            moku == "Kahikinui" & island == "Maui" ~ "KAHIKINUI",
+            moku == "Kaupo" & island == "Maui" ~ "KAUPO",
+            moku == "Kīpahulu" & island == "Maui" ~ "KIPAHULU",
+            moku == "Hāna" & island == "Maui" ~ "HANA",
+            moku == "Koʻolau" & island == "Maui" ~ "KOOLAU MAU",
+            moku == "Hāmākualoa" & island == "Maui" ~ "HAMAKUALOA",
+            moku == "Hāmākuapoko" & island == "Maui" ~ "HAMAKUAPOKO",
+            moku == "Wailuku" & island == "Maui" ~ "WAILUKU",
+            moku == "Kāʻanapali" & island == "Maui" ~ "KAANAPALI"
+          )
+        ) %>% 
+        relocate(moku_name2, .after = moku)
+      
+      incProgress(1/3, detail = "Rendering table...")  
+      
+      combined_dataset %>%
+        gt() %>%
+        opt_interactive(
+          .,
+          use_sorting = TRUE,
+          use_search = TRUE,
+          use_filters = TRUE,
+          use_resizers = TRUE,
+          page_size_default = 10
+        )
     })
-    combined_dataset <- do.call(rbind, datasets)
-    
-    combined_dataset %>%
-      gt() %>%
-      opt_interactive(
-        .,
-        use_sorting = TRUE,
-        use_search = TRUE,
-        use_filters = TRUE,
-        use_resizers = TRUE,
-        page_size_default = 10)
   })
   
   output$download_data <- downloadHandler(
@@ -296,24 +474,67 @@ server <- function(input, output, session) {
     content = function(file) {
       datasets <- lapply(input$dataset_selector, function(selected_dataset) {
         df <- tidy_conditions_data(mhi_conditions_dfs()[[selected_dataset]], conditions_keyword_searches, rename_conditions_cols, conditions_cols_to_sep)
+        
         df$moku <- iconv(df$moku, "UTF-8", "UTF-8", sub = "")
+        
+        df <- df %>%
+          mutate(
+            moku = if_else(moku == "Ko‘olau", "Koʻolau", moku),
+            moku_name2 = case_when(
+              moku == "Kona" & island == "Hawaiʻi" ~ "KONA HAW",
+              moku == "Kāʻu" & island == "Hawaiʻi" ~ "KAU",
+              moku == "Puna" & island == "Hawaiʻi" ~ "PUNA HAW",
+              moku == "Hilo" & island == "Hawaiʻi" ~ "HILO",
+              moku == "Hāmākua" & island == "Hawaiʻi" ~ "HAMAKUA",
+              moku == "Kohala" & island == "Hawaiʻi" ~ "KOHALA",
+              moku == "Waiʻanae" & island == "Oʻahu" ~ "WAIANAE",
+              moku == "ʻEwa" & island == "Oʻahu" ~ "EWA",
+              moku == "Kona" & island == "Oʻahu" ~ "KONA OAH",
+              moku == "Koʻolaupoko" & island == "Oʻahu" ~ "KOOLAUPOKO",
+              moku == "Koʻolauloa" & island == "Oʻahu" ~ "KOOLAULOA",
+              moku == "Waialua" & island == "Oʻahu" ~ "WAIALUA",
+              moku == "Mana" & island == "Kauaʻi" ~ "MANA",
+              moku == "Kona" & island == "Kauaʻi" ~ "KONA KAU",
+              moku == "Puna" & island == "Kauaʻi" ~ "PUNA KAU",
+              moku == "Koʻolau" & island == "Kauaʻi" ~ "KOOLAU KAU",
+              moku == "Haleleʻa" & island == "Kauaʻi" ~ "HALELEA",
+              moku == "Nāpali" & island == "Kauaʻi" ~ "NAPALI",
+              moku == "Kona" & island == "Kahoʻolawe" ~ "KONA KAH",
+              moku == "Koʻolau" & island == "Kahoʻolawe" ~ "KOOLAU KAH",
+              moku == "Kona" & island == "Lānaʻi" ~ "KONA LAN",
+              moku == "Koʻolau" & island == "Lānaʻi" ~ "KOOLAU LAN",
+              moku == "Kualuakoʻi" & island == "Molokaʻi" ~ "KALUAKOI",
+              moku == "Pālāʻau" & island == "Molokaʻi" ~ "PALAAU",
+              moku == "Kona" & island == "Molokaʻi" ~ "KONA MOL",
+              moku == "Hālawa" & island == "Molokaʻi" ~ "HALAWA",
+              moku == "Koʻolau" & island == "Molokaʻi" ~ "KOOLAU MOL",
+              moku == "Lāhainā" & island == "Maui" ~ "LAHAINA",
+              moku == "Kealaloloa" & island == "Maui" ~ "KEALALOLOA",
+              moku == "Kula" & island == "Maui" ~ "KULA",
+              moku == "Honuaʻula" & island == "Maui" ~ "HONUAULA",
+              moku == "Kahikinui" & island == "Maui" ~ "KAHIKINUI",
+              moku == "Kaupo" & island == "Maui" ~ "KAUPO",
+              moku == "Kīpahulu" & island == "Maui" ~ "KIPAHULU",
+              moku == "Hāna" & island == "Maui" ~ "HANA",
+              moku == "Koʻolau" & island == "Maui" ~ "KOOLAU MAU",
+              moku == "Hāmākualoa" & island == "Maui" ~ "HAMAKUALOA",
+              moku == "Hāmākuapoko" & island == "Maui" ~ "HAMAKUAPOKO",
+              moku == "Wailuku" & island == "Maui" ~ "WAILUKU",
+              moku == "Kāʻanapali" & island == "Maui" ~ "KAANAPALI"
+            )
+          ) %>% 
+          relocate(moku_name2, .after = moku)
+        
         return(df)
       })
       combined_dataset <- do.call(rbind, datasets)
       readr::write_excel_csv(combined_dataset, file)
       
-      # Deauthenticate after export
-      gs4_deauth()
+      showNotification("Data successfully exported as CSV file!", type = "message", duration = 10)
       
-      showNotification("Data successfully exported as CSV file and deauthenticated from Google Sheets API!", type = "message", duration = 10)
+      gs4_deauth()
     }
   )
 }
 
 shinyApp(ui = ui, server = server)
-
-# Path to your key.json file
-key_file <- here::here("code/dashboard-modules/download-current-data-app/keys/key.json")
-
-# Check if the key.json file represents a service account
-print(gargle::check_is_service_account(key_file))

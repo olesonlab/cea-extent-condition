@@ -286,6 +286,10 @@ if (!requireNamespace("pacman", quietly = TRUE)) {
 pacman::p_load(fs, renv, yaml, rmarkdown, sf, leaflet, mapview, htmlwidgets,
                janitor, tidyverse, googlesheets4, terra, lwgeom,
                viridis, stars, markdown)
+
+# install.packages("devtools")
+# devtools::install_github("agstn/dataxray")
+library(dataxray)
 ```
 
 ```{r}
@@ -307,10 +311,10 @@ gs4_auth()
 
 #### General
 
-Import extents and conditions data from Google Sheets for MHI:
-
 ```{r}
 #| label: slowly-import-data-from-google-sheets
+#| code-fold: true
+#| code-summary: "Import Extents and Conditions Data from Google Sheets for MHI"
 #| eval: false
 mhi_dfs <- get_up_to_date_mhi_data(
   gs_urls$extents, 
@@ -320,39 +324,39 @@ mhi_dfs <- get_up_to_date_mhi_data(
 
 ```{r}
 #| label: export-up-tp-date-mhi-dfs
+#| code-fold: true
+#| code-summary: "Export Up-to-Date MHI Dataframes"
 #| eval: false
 export_mhi_data_to_rdata(mhi_dfs, "data/raw/")
 ```
 
-Efficiently load extents and conditions data for MHI:
-
-```{r}
-#| label: check-path-id
-raw_data_paths <- fs::dir_ls("data/raw")
-
-for (i in seq_along(raw_data_paths)) {
-    cat(i, "=", raw_data_paths[i], "\n")
-}
-```
-
 ```{r}
 #| label: efficiently-load-updated-mhi-extents-and-conditions-data
+#| code-fold: true
+#| code-summary: "Efficiently load extents and conditions data for MHI"
+raw_data_paths <- fs::dir_ls("data/raw")
+
+# for (i in seq_along(raw_data_paths)) {
+#     cat(i, "=", raw_data_paths[i], "\n")
+# }
+
 base::load(raw_data_paths[2])
 ```
 
-List of MHI dataframes:
 
 ```{r}
+#| code-fold: true
+#| code-summary: "List of MHI Dataframes"
 names(mhi_dfs$extents)
 names(mhi_dfs$conditions)
 ```
 
 #### Specific
 
-Subset MHI dataframes:
-
 ```{r}
 #| label: import-oahu-extents-and-conditions-dat
+#| code-fold: true
+#| code-summary: "Subset MHI Dataframes"
 oahu_extents_dfs <- subset_mhi_dfs(
   mhi_dfs, subset = "extents", island_str = "oahu"
   )
@@ -362,9 +366,9 @@ oahu_conditions_dfs <- subset_mhi_dfs(
   )
 ```
 
-List of Oʻahu dataframes:
-
 ```{r}
+#| code-fold: true
+#| code-summary: "List of Oʻahu Dataframes"
 names(oahu_extents_dfs)
 names(oahu_conditions_dfs)
 ```
@@ -446,6 +450,8 @@ paged_table(tidied_oahu_marine_extents_df)
 
 ```{r}
 #| eval: false
+#| code-fold: true
+#| code-summary: "Tidy Oʻahu Terrestrial Extents Data"
 new_terrestrial_extent_names <- c("island", "moku", "habitat")
 tidied_oahu_terrestrial_extent_df <- oahu_extents_dfs$terrestrial_oahu %>% 
   mutate(island = "Oʻahu",
@@ -552,6 +558,8 @@ paged_table(tidied_mhi_conditions_df)
 
 ```{r}
 #| label: export-tidied-dfs-to-csv
+#| code-fold: true
+#| code-summary: "Export Processed Data"
 #| eval: false
 tidied_dfs_list <- list(
   list(df = tidied_mhi_conditions_df, desc_name = "mhi-conditions")
@@ -563,157 +571,12 @@ map(tidied_dfs_list, ~export_tidied_dfs_to_csv(.x$df, .x$desc_name))
 
 ### Generating Data Dictionaries
 
-## Visualizations
-
-```{r}
-#| eval: false
-#| echo: false
-crs <- "EPSG:4326"
-```
-
-```{r}
-#| eval: false
-#| echo: false
-moku <- st_read("data/spatial/moku/Moku_NEW.shp", quiet = TRUE)
-
-# Assuming 'moku' is your spatial vector data and needs to be transformed as well
-moku_transformed <- moku %>%
-  clean_names() %>%
-  mutate(name2 = str_to_title(name2)) %>%
-  st_transform(crs = crs)
-
-waianae_moku <- moku_transformed %>% 
-  filter(name2 == "Waianae")
-```
-
-```{r}
-#| eval: false
-#| echo: false
-mhi_marine_extent <- terra::rast("data/spatial/extent-layers/marine/Benthic_Habitat_5Classes_2022_10.tif") %>% 
-  terra::project(crs)
-
-waianae_moku_marine_extent <- mhi_marine_extent %>% 
-  crop(waianae_moku) %>% 
-  as.factor()
-
-# waianae_moku_marine_extent@ccp$getCategories()
-# 
-# getCategories()
-# activeCat(waianae_moku_marine_extent)
-
-# waianae_moku_marine_extent@cpp$activeCat() <- 1
-```
-
-```{r}
-#| eval: false
-#| echo: false
-# Define the colors for the habitat categories that are actually present in the raster
-habitat_colors <- c("white", "#F4E8C1", "#808080", "green", "#FF4500")  # Excludes "Other Hard Bottom"
-
-# Update the RAT with the correct values and colors, excluding "Other Hard Bottom"
-rat <- data.frame(
-  value = c(0, 1, 3, 4, 5),  # Updated to reflect the values that are present
-  habitat = c("NA", "Soft Bottom", "Rock/Boulder", "Pavement", "Coral Dominated Hard Bottom"),
-  color = habitat_colors
-)
-
-# Assign the updated RAT to the raster
-levels(waianae_moku_marine_extent) <- rat
-
-na_color <- "black"  
-rat$color[is.na(rat$color)] <- na_color
-```
-
-```{r}
-#| eval: false
-#| echo: false
-colored_waianae_moku_extents <- rat %>% 
-  left_join(tidied_waianae_oahu_extents, ., by = "habitat")
-```
-
-
-```{r}
-#| warning: false
-#| eval: false
-#| echo: false
-terra::plot(waianae_moku_marine_extent, col = colored_waianae_moku_extents$color)
-lines(waianae_moku, col="forestgreen", lwd=5) 
-```
-
-```{r}
-#| eval: false
-#| echo: false
-leaflet() %>%
-  setView(lng = -157.99827222584105, lat = 21.47, zoom = 10) %>%
-  addProviderTiles(providers$Esri.WorldImagery) %>%
-  addRasterImage(waianae_moku_marine_extent, opacity = 0.8, colors = rat$color) %>%
-  # addLegend(pal = rat$Color, values = rat$Value, opacity = 1, title = "Habitat") %>% 
-  addPolygons(data = waianae_moku, color = "#F4C2A5", opacity = 0.5,
-              label = ~as.character(name2),
-              labelOptions = labelOptions(
-                direction = 'auto', 
-                style = list('font-size' = '15pt',
-                             'font-weight' = 'bold'), 
-                noHide = TRUE)
-              ) 
-```
-
-```{r}
-#| eval: false
-#| echo: false
-# Generate a color palette
-palette <- colorFactor(palette = "viridis", domain = waianae_moku_marine_extent_df$Habitat)
-
-# Create the Leaflet map
-leaflet(waianae_moku_marine_extent_sf) %>%
-  setView(lng = -158.18700955981603, lat = 21.44041625309884, zoom = 9) %>%
-  addProviderTiles(providers$Esri.WorldImagery) %>%
-  addPolygons(fillColor = ~colors(layer), color = ~colors(layer), fillOpacity = 0.7, weight = 0) %>%
-  addLegend(pal = colors, values = ~layer, opacity = 1, title = "Habitat") %>% 
-  addPolygons(data = waianae_moku, color = "#F4C2A5", opacity = 0.5,
-              label = ~as.character(name2),
-              labelOptions = labelOptions(
-                direction = 'auto', 
-                style = list('font-size' = '15pt',
-                             'font-weight' = 'bold'), 
-                noHide = TRUE)
-              ) 
-```
-
-```{r}
-#| eval: false
-#| echo: false
-mapview(waianae_moku_marine_extent, legend = TRUE, trim = TRUE, 
-        use.layer.names = TRUE) + 
-  mapview(waianae_moku, label = waianae_moku$name2)
-```
-
 ```{r}
 #| code-fold: true
-#| code-summary: "Create Interactive Map"
-#| fig-height: 10
-#| fig-width: 15
-#| eval: false
-#| echo: false
-
-leaflet() %>%
-  setView(lng = -158.18700955981603, lat = 21.44041625309884, zoom = 12) %>%
-  addProviderTiles(providers$Esri.WorldImagery) %>%
-  addTiles(urlTemplate = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-           options = tileOptions(opacity = 0.9)) %>%
-  addTiles(urlTemplate = "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
-           options = tileOptions(opacity = 0.9)) %>%
-    addRasterImage(marine_extent, opacity = 0.8, colors = viridis::viridis(100)) %>%
-  addPolygons(data = moku_transformed, 
-              color = "#F4C2A5",
-              opacity = 0.5,
-              label = ~as.character(name2), # Add hover labels
-              labelOptions = labelOptions(
-                direction = 'top', 
-                style = list('font-size' = '20pt'),
-                noHide = TRUE
-                )
-              )
+#| code-summary: "MHI Marine Condition Accounts Data Dictionary"
+tidied_mhi_conditions_df %>%
+  make_xray() %>% 
+  view_xray()
 ```
 
 ## Resources

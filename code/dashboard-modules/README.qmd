@@ -1,0 +1,21 @@
+---
+title: "Aloha!"
+format: gfm
+---
+
+<center>
+<img src="www/logos/uhm-logo.png" alt="" align="center" width="200"> <br><br>
+    <img src="www/logos/pew-research-center-logo.png" alt="" align="center" width="200"> <br><br>
+    <img src="www/logos/sea-grant-logo.png" alt="" align="center" height="200"> <br><br>
+    <img src="www/logos/pi-casc-logo.png" alt="" align="center" height="200"> <br><br>
+</center>
+
+```{r}
+#| echo: false
+current_date <- format(Sys.Date(), '%m/%d/%Y')
+```
+
+**Created By**: Alemarie Ceria <br> 
+**Last Updated**: `r current_date` <br><br>
+
+*© 2024 Oleson Lab, University of Hawaii at Manoa*

@@ -8,7 +8,18 @@ format:
         href: https://github.com/olesonlab/cea-extent-condition
 ---
 
-## Sidebar {.sidebar}
+## Sidebar {.sidebar} 
+
+```{r}
+#| echo: false
+library(fs)
+original_file <- "code/dashboard-modules/README.md"
+new_file <- "code/dashboard-modules/dashboard-intro.md"
+
+if (fs::file_exists(original_file)) {
+  fs::file_move(original_file, new_file)
+}
+```
 
 ```{r}
 htmltools::includeMarkdown(here::here("code/dashboard-modules/dashboard-intro.md"))
@@ -17,7 +28,7 @@ htmltools::includeMarkdown(here::here("code/dashboard-modules/dashboard-intro.md
 ## Row
 
 ```{r}
-#| title: "Oʻahu Mokus and Marine Extents"
+#| title: "Oʻahu Mokus"
 #| message: false
 #| warning: false
 invisible({source("code/dashboard-modules/interactive-map.R")})

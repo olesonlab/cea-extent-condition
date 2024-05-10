@@ -9,7 +9,8 @@ mokus_sf <- st_read("data/spatial/moku/Moku_NEW.shp", quiet = TRUE) %>%
   janitor::clean_names() %>% 
   mutate(name = str_remove(name2, "\\s\\w+"),
          name2 = if_else(name2 == "KALAWA", "HALAWA", name2),
-         name = if_else(name == "KALAWA", "HALAWA", name)) 
+         name = if_else(name == "KALAWA", "HALAWA", name),
+         island = str_to_upper(island))
 
 # Find a point on the surface of each geometry
 points_on_surface <- st_point_on_surface(mokus_sf)
@@ -33,6 +34,33 @@ colors <- as.character(wes_palette("Darjeeling1"))
 
 # Shuffle the colors
 shuffled_colors <- sample(colors)
+
+island_labels <- data.frame(
+  island = c("HAWAII", 
+             "OAHU", 
+             "KAUAI", 
+             "NIIHAU", 
+             "KAHOOLAWE", 
+             "LANAI",
+             "MOLOKAI", 
+             "MAUI"),
+  lat = c(19.351647176347488, 
+          21.648315248200046, 
+          22.401295315702967, 
+          21.98668405502797, 
+          20.387120892420214, 
+          20.778627806569286, 
+          21.33686153447943, 
+          21.07848084802507),
+  lon = c(-156.18654482636637, 
+          -157.69573354364107, 
+          -159.41289281713267, 
+          -160.39025812149933, 
+          -156.57098710165647, 
+          -157.15534196351234, 
+          -157.00290895556614, 
+          -156.17145618495033)
+)
 
 # MHI centroid
 # lat <- 20.482906296022126
@@ -63,25 +91,38 @@ m <- leaflet() %>%
                           fontWeight = "bold", 
                           fontSize = "15px")
                       )) %>%
-  addRasterImage(marine_extent_rast_no_na, 
-                 colors = shuffled_colors, 
-                 opacity = 0.85,
-                 layerId = "Marine Extents")  %>%
-  addLayersControl(
-    baseGroups = c("Basemap"),
-    overlayGroups = c("Marine Extents"),
-    options = layersControlOptions(collapsed = FALSE)
-  )
+  addLabelOnlyMarkers(data = island_labels, 
+                      lng = ~lon, 
+                      lat = ~lat, 
+                      label = ~island,
+                      labelOptions = labelOptions(
+                        noHide = TRUE, 
+                        textOnly = TRUE, 
+                        direction = "left",
+                        style = list(
+                          color = "yellow", 
+                          fontWeight = "bold", 
+                          fontSize = "22px")
+                      ))  
+  # addRasterImage(marine_extent_rast_no_na, 
+  #                colors = shuffled_colors, 
+  #                opacity = 0.85,
+  #                layerId = "Marine Extents")  %>%
+  # addLayersControl(
+  #   baseGroups = c("Basemap"),
+  #   overlayGroups = c("Marine Extents"),
+  #   options = layersControlOptions(collapsed = FALSE)
+  # )
   
 
-# Add legend
-m <- addLegend(
-  map = m,
-  position = "bottomleft",
-  colors = shuffled_colors,
-  labels = unique_classes,
-  title = "Habitat Classes"
-)
+# # Add legend
+# m <- addLegend(
+#   map = m,
+#   position = "bottomleft",
+#   colors = shuffled_colors,
+#   labels = unique_classes,
+#   title = "Habitat Classes"
+# )
 
 # Add an inset map
 m <- addMiniMap(
@@ -89,5 +130,5 @@ m <- addMiniMap(
   tiles = providers$Esri.WorldImagery,
   width = 150,
   height = 150,
-  position = "bottomright"
+  position = "bottomleft"
 )
