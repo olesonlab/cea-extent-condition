@@ -12,12 +12,25 @@ format:
 
 ```{r}
 #| echo: false
+#| message: false
+#| warning: false
+#| results: 'hide'
 library(fs)
+library(quarto)
+
+quarto_file <- "code/dashboard-modules/README.qmd"
+
+capture.output(quarto_render(quarto_file), type = "message")
+
 original_file <- "code/dashboard-modules/README.md"
 new_file <- "code/dashboard-modules/dashboard-intro.md"
 
+if (fs::file_exists(new_file)) {
+  fs::file_delete(new_file)
+}
+
 if (fs::file_exists(original_file)) {
-  fs::file_move(original_file, new_file)
+  fs::file_copy(original_file, new_file)
 }
 ```
 

@@ -44,5 +44,5 @@ renv/
 /.quarto/
 _freeze/
 data/
-code/gsheets_urls.yml
+code/gs_urls.yml
 code/dashboard-modules/download-current-data-app/keys/
