@@ -2,7 +2,7 @@ project:
   type: website
   output-dir: docs
   preview: 
-    port: 5240
+    port: 1200
     browser: true
     
 execute:
@@ -30,11 +30,11 @@ format:
     fontsize: 12pt
     page-layout: full
     margin-header: |
-      <br>
+      <br><center>
       ![](/www/logos/uhm-logo.png) 
       <br><br>
-      ![](/www/logos/pew-research-center-logo.png) 
-      <br><br><center>
+      ![](/www/logos/pew-logo.png){width="130"} 
+      <br><br>
       ![](/www/logos/sea-grant-logo.png){height="150"}
       <br><br>
       ![](/www/logos/pi-casc-logo.png){height="150"}

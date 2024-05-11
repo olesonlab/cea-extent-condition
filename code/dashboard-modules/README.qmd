@@ -5,18 +5,22 @@ format: gfm
 
 <center>
 <img src="www/logos/uhm-logo.png" alt="" align="center" width="200"> <br><br>
-    <img src="www/logos/pew-research-center-logo.png" alt="" align="center" width="200"> <br><br>
+    <img src="www/logos/pew-logo.png" alt="" align="center" width="130"> <br><br>
     <img src="www/logos/sea-grant-logo.png" alt="" align="center" height="200"> <br><br>
     <img src="www/logos/pi-casc-logo.png" alt="" align="center" height="200"> <br><br>
 </center>
 
 ```{r}
 #| echo: false
+# install.packages("epoxy")
+library(epoxy)
 current_date <- format(Sys.Date(), '%m/%d/%Y')
 ```
 
-**Created By**: Alemarie Ceria <br> 
+```{epoxy}
+**Created By**: Alemarie Ceria <br>
 **Date Created:** 05/06/2024 <br>
-**Last Updated**: `r current_date` <br><br>
+**Last Updated**: {current_date}
+```
 
 *© 2024 Oleson Lab, University of Hawaii at Manoa*

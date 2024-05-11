@@ -6,7 +6,7 @@ format:
     nav-buttons:
       - icon: github
         href: https://github.com/olesonlab/cea-extent-condition
----
+--- 
 
 ```{r}
 #| echo: false
@@ -19,25 +19,14 @@ library(quarto)
 quarto_file <- "code/dashboard-modules/README.qmd"
 
 capture.output(quarto_render(quarto_file), type = "message")
-
-original_file <- "code/dashboard-modules/README.md"
-new_file <- "code/dashboard-modules/dashboard-intro.md"
-
-if (fs::file_exists(new_file)) {
-  fs::file_delete(new_file)
-}
-
-if (fs::file_exists(original_file)) {
-  fs::file_copy(original_file, new_file)
-}
 ```
 
 # Interactive Visualizations
 
-## Sidebar {.sidebar} 
+## Sidebar {.sidebar}
 
 ```{r}
-htmltools::includeMarkdown(here::here("code/dashboard-modules/dashboard-intro.md"))
+htmltools::includeMarkdown(here::here("code/dashboard-modules/README.md"))
 ```
 
 ## Column
@@ -84,7 +73,7 @@ print("Plot")
 ## Sidebar {.sidebar} 
 
 ```{r}
-htmltools::includeMarkdown(here::here("code/dashboard-modules/dashboard-intro.md"))
+htmltools::includeMarkdown(here::here("code/dashboard-modules/README.md"))
 ```
 
 ## Row

@@ -173,6 +173,18 @@
       ],
       "Hash": "4f57884290cc75ab22f4af9e9d4ca862"
     },
+    "and": {
+      "Package": "and",
+      "Version": "0.1.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "glue",
+        "rlang"
+      ],
+      "Hash": "2250394d1dfdff8494d11851939f1412"
+    },
     "askpass": {
       "Package": "askpass",
       "Version": "1.2.0",
@@ -639,6 +651,27 @@
         "rlang"
       ],
       "Hash": "bb0eec2fe32e88d9e2836c2f73ea2077"
+    },
+    "epoxy": {
+      "Package": "epoxy",
+      "Version": "1.0.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "and",
+        "glue",
+        "htmltools",
+        "knitr",
+        "lifecycle",
+        "purrr",
+        "rlang",
+        "rmarkdown",
+        "scales",
+        "tools",
+        "whisker"
+      ],
+      "Hash": "23fe5bf25c9a1acf330a9ceab49fc4da"
     },
     "evaluate": {
       "Package": "evaluate",
@@ -2572,6 +2605,13 @@
         "R"
       ],
       "Hash": "f0d5ebcc72b5d6d2f338be8d80d39004"
+    },
+    "whisker": {
+      "Package": "whisker",
+      "Version": "0.4.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "c6abfa47a46d281a7d5159d0a8891e88"
     },
     "withr": {
       "Package": "withr",

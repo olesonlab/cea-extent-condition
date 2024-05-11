@@ -4,7 +4,7 @@
 <center>
 <img src="www/logos/uhm-logo.png" alt="" align="center" width="200">
 <br><br>
-<img src="www/logos/pew-research-center-logo.png" alt="" align="center" width="200">
+<img src="www/logos/pew-logo.png" alt="" align="center" width="130">
 <br><br>
 <img src="www/logos/sea-grant-logo.png" alt="" align="center" height="200">
 <br><br>
@@ -12,7 +12,7 @@
 <br><br>
 </center>
 
-**Created By**: Alemarie Ceria <br> **Created On:** 05/06/2024 <br>
-**Last Updated**: 05/10/2024 <br><br>
+**Created By**: Alemarie Ceria <br> **Date Created:** 05/06/2024 <br>
+**Last Updated**: 05/10/2024
 
 *© 2024 Oleson Lab, University of Hawaii at Manoa*
