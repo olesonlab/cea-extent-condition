@@ -1,0 +1,32 @@
+{
+  "about.qmd": {
+    "about.html": "698852f5"
+  },
+  "code/create-visualizations.qmd": {
+    "create-visualizations.html": "85309ff8"
+  },
+  "index.qmd": {
+    "index.html": "78607666"
+  },
+  "dashboard.qmd": {
+    "dashboard.html": "0e048244"
+  },
+  "dashboard-intro.md": {
+    "dashboard-intro.html": "273fc771"
+  },
+  "code/dashboard-modules/dashboard-intro.md": {
+    "dashboard-intro.html": "bf9fb57a"
+  },
+  "data-processing.qmd": {
+    "data-processing.html": "7fbdd743"
+  },
+  "code/dashboard-modules/dashboard-intro.Rmd": {
+    "dashboard-intro.html": "dc9524d0"
+  },
+  "code/dashboard-modules/dashboard-intro.qmd": {
+    "dashboard-intro.md": "d866d766"
+  },
+  "docs/code/dashboard-modules/dashboard-intro.md": {
+    "dashboard-intro.html": "76ba152b"
+  }
+}

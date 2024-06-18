@@ -1,7 +1,7 @@
 ---
 format: 
   dashboard:
-    logo: www/logos/earth-americas-solid.svg
+    logo: website/assets/logos/earth-americas-solid.svg
     scrolling: true
     nav-buttons:
       - icon: github
